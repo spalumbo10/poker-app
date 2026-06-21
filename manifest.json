@@ -2,7 +2,7 @@
   "name": "Poker Tournament Manager",
   "short_name": "Poker",
   "description": "Manage poker tournament blinds, seasons, and standings",
-  "start_url": "./poker-app.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0a0e1a",
   "theme_color": "#4f7cff",
