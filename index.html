@@ -152,9 +152,9 @@ h2{font-size:17px;font-weight:600}
         <div id="f-timer" class="f-timer" style="font-size:90px">--:--</div>
         <div id="f-lvl-lbl" style="font-size:13px;color:#2a3d58;margin-bottom:6px">—</div>
         <div style="display:flex;gap:14px;margin-top:8px;width:100%;justify-content:center">
-          <button class="f-ctrl-btn" onclick="prevLvl()" title="Previous level" style="flex:1;padding:18px 0;font-size:22px">&#9664;&#9664;</button>
+          <button class="f-ctrl-btn" id="f-btn-prev" onclick="prevLvl()" title="Previous level" style="flex:1;padding:18px 0;font-size:22px">&#9664;&#9664;</button>
           <button class="f-ctrl-btn play" id="f-btn-tp" onclick="toggleTimer()" style="flex:2;padding:18px 0;font-size:26px">&#9654;</button>
-          <button class="f-ctrl-btn" onclick="nextLvl()" title="Next level" style="flex:1;padding:18px 0;font-size:22px">&#9654;&#9654;</button>
+          <button class="f-ctrl-btn" id="f-btn-next" onclick="nextLvl()" title="Next level" style="flex:1;padding:18px 0;font-size:22px">&#9654;&#9654;</button>
         </div>
       </div>
 
@@ -1600,6 +1600,11 @@ function renderFloorPot() {
 function openFloor() {
   document.getElementById('floor').classList.add('on');
   refreshTimerDisp(); refreshBlindsDisp(); renderFloorStandings(); refreshFloorPlayBtn(); renderFloorPot();
+  var isViewer = sessionStorage.getItem('pkr4-role') === 'viewer';
+  ['f-btn-prev','f-btn-tp','f-btn-next'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = isViewer ? 'none' : '';
+  });
 }
 function closeFloor() { document.getElementById('floor').classList.remove('on'); }
 
