@@ -152,9 +152,9 @@ h2{font-size:17px;font-weight:600}
         <div id="f-timer" class="f-timer" style="font-size:90px">--:--</div>
         <div id="f-lvl-lbl" style="font-size:13px;color:#2a3d58;margin-bottom:6px">—</div>
         <div style="display:flex;gap:14px;margin-top:8px;width:100%;justify-content:center">
-          <button class="f-ctrl-btn" id="f-btn-prev" onclick="prevLvl()" title="Previous level" style="flex:1;padding:18px 0;font-size:22px">&#9664;&#9664;</button>
-          <button class="f-ctrl-btn play" id="f-btn-tp" onclick="toggleTimer()" style="flex:2;padding:18px 0;font-size:26px">&#9654;</button>
-          <button class="f-ctrl-btn" id="f-btn-next" onclick="nextLvl()" title="Next level" style="flex:1;padding:18px 0;font-size:22px">&#9654;&#9654;</button>
+          <button class="f-ctrl-btn" id="f-btn-prev" onclick="prevLvl()" title="Previous level" style="flex:1;padding:8px 0;font-size:16px">&#9664;&#9664;</button>
+          <button class="f-ctrl-btn play" id="f-btn-tp" onclick="toggleTimer()" style="flex:2;padding:8px 0;font-size:18px">&#9654;</button>
+          <button class="f-ctrl-btn" id="f-btn-next" onclick="nextLvl()" title="Next level" style="flex:1;padding:8px 0;font-size:16px">&#9654;&#9654;</button>
         </div>
       </div>
 
@@ -372,9 +372,14 @@ h2{font-size:17px;font-weight:600}
     <!-- GitHub Photos -->
     <div class="card mt16">
       <h2 style="margin-bottom:4px">Player photo base URL</h2>
-      <div style="font-size:13px;color:var(--text3);margin-bottom:10px">Upload photos to your GitHub repo in a <code style="background:#1a2235;padding:1px 4px;border-radius:3px">photos/</code> folder named <code style="background:#1a2235;padding:1px 4px;border-radius:3px">PlayerName.jpg</code> and they will load automatically on any device.</div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:10px">Upload photos to your GitHub repo in a <code style="background:#1a2235;padding:1px 4px;border-radius:3px">photos/</code> folder. Name files in lowercase e.g. <code style="background:#1a2235;padding:1px 4px;border-radius:3px">steve.jpg</code>, <code style="background:#1a2235;padding:1px 4px;border-radius:3px">start.jpg</code>, <code style="background:#1a2235;padding:1px 4px;border-radius:3px">pause.jpg</code>.</div>
       <div class="lbl">Base URL</div>
-      <input type="url" id="gh-photos-url" placeholder="https://yourusername.github.io/poker-app/photos" oninput="saveGhPhotosUrl()">
+      <input type="url" id="gh-photos-url" placeholder="https://yourusername.github.io/poker-app/photos" oninput="saveGhPhotosUrl()" style="margin-bottom:10px">
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <button class="sm" onclick="testPhotoUrl()">Test image URL</button>
+        <button class="sm" onclick="testSound()">Test sound</button>
+      </div>
+      <div id="photo-url-test" style="font-size:12px;margin-top:10px"></div>
     </div>
 
     <!-- Password -->
@@ -596,6 +601,23 @@ function saveGhPhotosUrl() {
 function loadGhPhotosUrl() {
   var el = document.getElementById('gh-photos-url');
   if (el && S.ui.ghPhotosUrl) el.value = S.ui.ghPhotosUrl;
+}
+function testPhotoUrl() {
+  var el = document.getElementById('photo-url-test');
+  if (!el) return;
+  var base = S.ui && S.ui.ghPhotosUrl;
+  if (!base) { el.innerHTML = '<span style="color:var(--red)">No base URL set — enter one above first.</span>'; return; }
+  // Show the first player's URL as a test
+  var first = S.players && S.players[0];
+  var name = first ? first.name.toLowerCase() : 'example';
+  var testUrl = base + '/' + encodeURIComponent(name) + '.jpg';
+  var startUrl = base + '/start.jpg';
+  el.innerHTML =
+    '<div style="color:var(--text3);margin-bottom:6px">Testing these URLs:</div>' +
+    '<div style="margin-bottom:4px"><a href="'+testUrl+'" target="_blank" style="color:#4f7cff;font-size:11px;word-break:break-all">'+testUrl+'</a>' +
+    ' <img src="'+testUrl+'" style="height:28px;vertical-align:middle;border-radius:4px;margin-left:4px" onerror="this.replaceWith(document.createTextNode(\'✗ not found\'))" onload="this.insertAdjacentHTML(\'beforebegin\',\'✓ \')"></div>' +
+    '<div><a href="'+startUrl+'" target="_blank" style="color:#4f7cff;font-size:11px;word-break:break-all">'+startUrl+'</a>' +
+    ' <img src="'+startUrl+'" style="height:28px;vertical-align:middle;border-radius:4px;margin-left:4px" onerror="this.replaceWith(document.createTextNode(\'✗ not found\'))" onload="this.insertAdjacentHTML(\'beforebegin\',\'✓ \')"></div>';
 }
 function saveCfSettings() {
   var url = (document.getElementById('cf-url')||{}).value || '';
@@ -845,6 +867,7 @@ function startGame() {
 
 // ─── Timer ───────────────────────────────────────────────────────────────────
 function toggleTimer() {
+  unlockSpeech();
   if (S.timer.running) {
     stopTimer();
     setTimerBtn('&#9654; Resume', '&#9654;');
@@ -919,14 +942,29 @@ function resetLvl() {
   stopTimer(); S.timer.secsLeft=S.levels[S.timer.lvlIdx].dur*60;
   setTimerBtn('&#9654; Start','&#9654;'); refreshTimerDisp(); saveData();
 }
+var speechUnlocked = false;
+function unlockSpeech() {
+  if (speechUnlocked || !window.speechSynthesis) return;
+  // iOS requires speechSynthesis to be triggered inside a user gesture first
+  var u = new SpeechSynthesisUtterance('');
+  u.volume = 0;
+  window.speechSynthesis.speak(u);
+  speechUnlocked = true;
+}
 function speak(text) {
   if (!window.speechSynthesis) return;
+  // Resume if suspended (happens on iOS after page backgrounding)
+  if (window.speechSynthesis.paused) window.speechSynthesis.resume();
   window.speechSynthesis.cancel();
   var u = new SpeechSynthesisUtterance(text);
   u.rate = 0.95;
   u.pitch = 1;
   u.volume = 1;
   window.speechSynthesis.speak(u);
+}
+function testSound() {
+  unlockSpeech();
+  speak('Blinds are up');
 }
 function timerStep() {
   if (S.timer.secsLeft>0) {
@@ -1652,7 +1690,7 @@ function renderFloorStandings() {
     var player = S.players.find(function(pl){return pl.name===p.name;});
     var avatarHtml = inTop5
       ? ((getPhotoSrc(player))
-          ? '<img src="'+getPhotoSrc(player)+'" class="f-savatar">'
+          ? '<img src="'+getPhotoSrc(player)+'" class="f-savatar" onerror="this.outerHTML=\'<div class=\\\"f-savatar-init\\\">'+escJS(initials(p.name))+'<\\/div>\'">'
           : '<div class="f-savatar-init">'+initials(p.name)+'</div>')
       : '';
 
