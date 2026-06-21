@@ -929,7 +929,7 @@ function refreshFloorPlayBtn() {
   if (!b) return;
   if (img) {
     b.style.padding='0'; b.style.overflow='hidden';
-    b.innerHTML='<img src="'+img+'" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentElement.style.padding=\'\';this.parentElement.style.overflow=\'\';this.parentElement.innerHTML=\''+fallback+'\'">';
+    b.innerHTML='<img src="'+img+'" style="width:100%;max-height:50px;object-fit:cover;display:block" onerror="this.parentElement.style.padding=\'\';this.parentElement.style.overflow=\'\';this.parentElement.innerHTML=\''+fallback+'\'">';
   } else {
     b.style.padding=''; b.style.overflow='';
     b.innerHTML=fallback;
@@ -1690,7 +1690,7 @@ function renderFloorStandings() {
     var player = S.players.find(function(pl){return pl.name===p.name;});
     var avatarHtml = inTop5
       ? ((getPhotoSrc(player))
-          ? '<img src="'+getPhotoSrc(player)+'" class="f-savatar" onerror="this.outerHTML=\'<div class=\\\"f-savatar-init\\\">'+escJS(initials(p.name))+'<\\/div>\'">'
+          ? '<img src="'+getPhotoSrc(player)+'" class="f-savatar" onerror="avatarImgError(this,\''+escJS(initials(p.name))+'\')">'
           : '<div class="f-savatar-init">'+initials(p.name)+'</div>')
       : '';
 
@@ -1753,6 +1753,12 @@ function getButtonImgSrc(which) {
   return null;
 }
 function initials(name){return name.split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2)||'?';}
+function avatarImgError(img, init) {
+  var d = document.createElement('div');
+  d.className = 'f-savatar-init';
+  d.textContent = init;
+  img.parentNode.replaceChild(d, img);
+}
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 load();
