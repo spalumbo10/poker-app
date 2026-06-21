@@ -890,22 +890,23 @@ function refreshBtnImgPreviews() {
   ['start','pause'].forEach(function(w) {
     var prev = document.getElementById(w+'img-preview');
     var rm   = document.getElementById(w+'img-rm');
-    var img  = S.ui[w+'Img'];
+    var img  = getButtonImgSrc(w);
+    var hasUpload = !!(S.ui && S.ui[w+'Img']);
     if (prev) prev.innerHTML = img
-      ? '<img src="'+img+'" style="max-height:80px;max-width:100%;border-radius:8px">'
+      ? '<img src="'+img+'" style="max-height:80px;max-width:100%;border-radius:8px" onerror="this.parentElement.innerHTML=\'<span style=\\\"font-size:36px;color:var(--text3)\\\">'+(w==='start'?'&#9654;':'&#9208;')+'</span>\'">'
       : '<span style="font-size:36px;color:var(--text3)">'+(w==='start'?'&#9654;':'&#9208;')+'</span>';
-    if (rm) rm.style.display = img ? '' : 'none';
+    if (rm) rm.style.display = hasUpload ? '' : 'none';
   });
 }
 function refreshFloorPlayBtn() {
   var running = S.timer.running;
-  var img = running ? S.ui.pauseImg : S.ui.startImg;
+  var img = getButtonImgSrc(running ? 'pause' : 'start');
   var fallback = running ? '&#9208;' : '&#9654;';
   var b = document.getElementById('f-btn-tp');
   if (!b) return;
   if (img) {
     b.style.padding='0'; b.style.overflow='hidden';
-    b.innerHTML='<img src="'+img+'" style="width:100%;height:100%;object-fit:cover;display:block">';
+    b.innerHTML='<img src="'+img+'" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentElement.style.padding=\'\';this.parentElement.style.overflow=\'\';this.parentElement.innerHTML=\''+fallback+'\'">';
   } else {
     b.style.padding=''; b.style.overflow='';
     b.innerHTML=fallback;
@@ -1699,7 +1700,13 @@ function getPhotoSrc(player) {
   if (player.photoUrl) return player.photoUrl;
   if (player.photo) return player.photo;
   var base = S.ui && S.ui.ghPhotosUrl;
-  if (base) return base.replace(/\/$/, '') + '/' + encodeURIComponent(player.name) + '.jpg';
+  if (base) return base.replace(/\/$/, '') + '/' + encodeURIComponent(player.name.toLowerCase()) + '.jpg';
+  return null;
+}
+function getButtonImgSrc(which) {
+  if (S.ui && S.ui[which+'Img']) return S.ui[which+'Img'];
+  var base = S.ui && S.ui.ghPhotosUrl;
+  if (base) return base.replace(/\/$/, '') + '/' + which + '.jpg';
   return null;
 }
 function initials(name){return name.split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2)||'?';}
