@@ -64,7 +64,7 @@ h2{font-size:17px;font-weight:600}
 .ck{width:20px;height:20px;border-radius:4px;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
 .ck.on{background:var(--accent);border-color:var(--accent)}
 .avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0}
-.avatar-init{width:36px;height:36px;border-radius:50%;background:var(--bg4);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--text2);flex-shrink:0}
+.avatar-init{width:36px;height:36px;border-radius:50%;background:var(--bg4);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--text2);flex-shrink:0;position:relative;overflow:hidden}
 
 /* Bust */
 .bust-btn{display:block;width:100%;text-align:left;padding:14px 16px;margin-bottom:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:15px;font-weight:500;cursor:pointer;transition:border-color .15s,background .15s}
@@ -166,7 +166,7 @@ h2{font-size:17px;font-weight:600}
         <div id="f-lvl-lbl" style="font-size:13px;color:#2a3d58;margin-bottom:6px">—</div>
         <div style="display:flex;gap:14px;margin-top:8px;width:100%;justify-content:center">
           <button class="f-ctrl-btn" id="f-btn-prev" onclick="prevLvl()" title="Previous level" style="flex:1;padding:8px 0;font-size:16px">&#9664;&#9664;</button>
-          <button class="f-ctrl-btn play" id="f-btn-tp" onclick="toggleTimer()" style="flex:2;padding:8px 0;font-size:18px">&#9654;</button>
+          <button class="f-ctrl-btn play" id="f-btn-tp" onclick="toggleTimer()" style="width:78px;height:78px;border-radius:50%;padding:0;overflow:hidden;font-size:28px;flex:none;position:relative">&#9654;</button>
           <button class="f-ctrl-btn" id="f-btn-next" onclick="nextLvl()" title="Next level" style="flex:1;padding:8px 0;font-size:16px">&#9654;&#9654;</button>
         </div>
       </div>
@@ -941,11 +941,9 @@ function refreshFloorPlayBtn() {
   var b = document.getElementById('f-btn-tp');
   if (!b) return;
   if (img) {
-    b.style.padding='0'; b.style.overflow='hidden';
-    b.innerHTML='<img src="'+img+'" style="width:100%;max-height:50px;object-fit:cover;display:block" onerror="this.parentElement.style.padding=\'\';this.parentElement.style.overflow=\'\';this.parentElement.innerHTML=\''+fallback+'\'">';
+    b.innerHTML = fallback + '<img src="'+img+'" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'">';
   } else {
-    b.style.padding=''; b.style.overflow='';
-    b.innerHTML=fallback;
+    b.innerHTML = fallback;
   }
 }
 function stopTimer() {
@@ -1313,9 +1311,9 @@ function renderRoster() {
   if(!S.players.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px 0">No players yet</div>';return;}
   el.innerHTML=S.players.map(function(p){
     var src = getPhotoSrc(p);
-    var av = src
-      ? '<img src="'+src+'" class="avatar" style="margin-right:10px">'
-      : '<div class="avatar-init" style="margin-right:10px">'+initials(p.name)+'</div>';
+    var av = '<div class="avatar-init" style="margin-right:10px">'+initials(p.name)+
+      (src ? '<img src="'+src+'" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'">' : '')+
+      '</div>';
     var photoBtn = p.photo
       ? '<button class="sm" onclick="triggerPhotoUpload('+p.id+')" title="Change photo" style="margin-right:4px">&#128247;</button>'+
         '<button class="sm danger" onclick="removePhoto('+p.id+')" title="Remove photo" style="margin-right:4px">&#128247;&#10005;</button>'
@@ -1390,9 +1388,9 @@ function renderSeason() {
       var col=i===0?'var(--gold)':i===1?'#b0b8c8':i===2?'#c87941':'var(--text3)';
       var player=S.players.find(function(pl){return pl.name===p.name;});
       var src = getPhotoSrc(player);
-      var av = src
-        ? '<img src="'+src+'" class="avatar" style="margin-right:10px">'
-        : '<div class="avatar-init" style="margin-right:10px">'+initials(p.name)+'</div>';
+      var av = '<div class="avatar-init" style="margin-right:10px">'+initials(p.name)+
+        (src ? '<img src="'+src+'" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'">' : '')+
+        '</div>';
       var money = seasonMoney[p.name] || 0;
       var winnings = seasonWinnings[p.name] || 0;
       var koMoney = seasonKoMoney[p.name] || 0;
@@ -1704,7 +1702,7 @@ function renderFloorStandings() {
     var photoSrc = getPhotoSrc(player);
     var avatarHtml = inTop5
       ? '<div class="f-savatar-init">' + initials(p.name) +
-        (photoSrc ? '<img src="'+photoSrc+'" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'">' : '') +
+        (photoSrc ? '<img src="'+photoSrc+'" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'">' : '') +
         '</div>'
       : '';
 
