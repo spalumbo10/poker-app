@@ -1690,7 +1690,7 @@ function adjustBuyIns(name, delta) {
   if (!S.game.buyIns) S.game.buyIns = {};
   var cur = S.game.buyIns[name] || 1;
   S.game.buyIns[name] = Math.max(1, cur + delta);
-  renderBuyInList(); renderFloorPot(); saveData();
+  renderBuyInList(); renderFloorPot(); saveData(); pushLiveState(); syncPush(true);
 }
 
 function adjustAddon(name, type, delta) {
@@ -1698,7 +1698,7 @@ function adjustAddon(name, type, delta) {
   if (!S.game.addons) S.game.addons = {};
   if (!S.game.addons[name]) S.game.addons[name] = {full:0, partial:0};
   S.game.addons[name][type] = Math.max(0, (S.game.addons[name][type]||0) + delta);
-  renderBuyInList(); renderFloorPot(); saveData();
+  renderBuyInList(); renderFloorPot(); saveData(); pushLiveState(); syncPush(true);
 }
 
 function renderFloorPot() {
