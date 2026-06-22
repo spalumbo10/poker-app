@@ -287,27 +287,6 @@ h2{font-size:17px;font-weight:600}
       <div class="g2">
         <div>
           <div class="card">
-            <div class="between" style="margin-bottom:6px">
-              <h2>Game #<span id="gnum">—</span> — Timer <span id="g-week-lbl" style="font-size:13px;font-weight:400;color:var(--text3)"></span></h2>
-              <div class="row">
-                <button class="sm" onclick="prevLvl()">&#171; Prev</button>
-                <button class="sm" onclick="nextLvl()">Next &#187;</button>
-              </div>
-            </div>
-            <div style="text-align:center;margin:18px 0 10px">
-              <div id="timer-disp" style="font-size:64px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1">--:--</div>
-              <div id="lvl-disp" style="font-size:13px;margin-top:5px;color:var(--text2)">—</div>
-            </div>
-            <div class="row" style="justify-content:center;gap:8px">
-              <button class="primary" id="btn-tp" onclick="toggleTimer()">&#9654; Start</button>
-              <button onclick="resetLvl()">Reset Level</button>
-            </div>
-          </div>
-          <div class="card mt12">
-            <div class="lbl">Current blinds</div>
-            <div id="d-blinds-body"></div>
-          </div>
-          <div class="card mt12">
             <div class="between" style="margin-bottom:8px">
               <h2>Bust log</h2>
               <span id="bust-count" style="font-size:12px;color:var(--text3)"></span>
@@ -799,7 +778,7 @@ function applyCloudData(data) {
   });
   saveData();
   refreshGameTab(); renderSeason(); renderFloorStandings(); renderRoster(); renderLevels();
-  updateSeasonStatus(); refreshTimerDisp(); refreshBlindsDisp(); refreshMultBtns();
+  updateSeasonStatus(); refreshTimerDisp(); refreshBlindsDisp(); refreshMultBtns(); renderFloorPot();
 }
 
 function syncPull() {
