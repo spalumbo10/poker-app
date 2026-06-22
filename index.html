@@ -771,8 +771,8 @@ function applyCloudData(data) {
       S.game = data.game;
     } else {
       var dg = data.game;
-      // bustOrder: take cloud version (undo is pushed immediately; 15s guard protects active device)
-      S.game.bustOrder = dg.bustOrder || S.game.bustOrder;
+      // bustOrder: take cloud version if it exists ([] is valid — means undo happened)
+      if (Array.isArray(dg.bustOrder)) S.game.bustOrder = dg.bustOrder;
       // knockouts: take max per player
       Object.keys(dg.knockouts||{}).forEach(function(n) {
         S.game.knockouts = S.game.knockouts || {};
@@ -802,7 +802,10 @@ function applyCloudData(data) {
     if (local) { local.photoUrl = cp.photoUrl; }
     else { S.players.push({ id: cp.id, name: cp.name, photo: null, photoUrl: cp.photoUrl || null }); }
   });
-  saveData();
+  // Save without updating _lastLocalWrite — this is a cloud apply, not a local edit
+  var _savedWrite = _lastLocalWrite;
+  localStorage.setItem('pkr4', JSON.stringify(S));
+  _lastLocalWrite = _savedWrite;
   refreshGameTab(); renderSeason(); renderFloorStandings(); renderRoster(); renderLevels();
   updateSeasonStatus(); refreshTimerDisp(); refreshBlindsDisp(); refreshMultBtns(); renderFloorPot();
 }
