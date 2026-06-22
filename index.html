@@ -790,16 +790,7 @@ function applyCloudData(data) {
     S.game = null;
   }
   // Restore timer, adjusting for elapsed time if it was running
-  if (data.timer) {
-    S.timer.lvlIdx = data.timer.lvlIdx || 0;
-    var secs = data.timer.secsLeft || 0;
-    if (data.timer.running && data.timer.snapAt) {
-      var elapsed = Math.floor((Date.now() - data.timer.snapAt) / 1000);
-      secs = Math.max(0, secs - elapsed);
-    }
-    S.timer.secsLeft = secs;
-    S.timer.running = false; // always start paused on new device
-  }
+  // Never touch the running clock — local timer state is authoritative
   // Merge players
   (data.players || []).forEach(function(cp) {
     var local = S.players.find(function(p) { return p.id === cp.id || p.name === cp.name; });
@@ -819,13 +810,6 @@ function syncPull() {
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (!data || !data.syncedAt) { cfStatus('No cloud data found', false); return; }
-      var localAt = S.season.syncedAt || 0;
-      var cloudAt = data.syncedAt || 0;
-      var d = new Date(cloudAt);
-      var when = d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
-      var gameNote = data.game ? ' (game #' + data.game.num + ' in progress)' : '';
-      var msg = 'Load cloud data from ' + when + gameNote + '?';
-      if (!confirm(msg)) { cfStatus('Cancelled', null); return; }
       applyCloudData(data);
       cfStatus('✓ Loaded from cloud', true);
     })
@@ -840,20 +824,8 @@ function checkCloudSync() {
     .then(function(data) {
       if (!data || !data.syncedAt) return;
       var localAt = S.season.syncedAt || 0;
-      // Auto-load if cloud is meaningfully newer (>60s) and no local game in progress
-      if (data.syncedAt > localAt + 60000 && !S.game) {
-        var d = new Date(data.syncedAt);
-        var when = d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
-        var gameNote = data.game ? '\nGame #' + data.game.num + ' is in progress on another device.' : '';
-        if (confirm('Cloud has newer data from ' + when + '.' + gameNote + '\nLoad it?')) {
-          applyCloudData(data);
-        }
-      } else if (data.syncedAt > localAt + 60000 && data.game) {
-        // Cloud has a game in progress — always prompt
-        var d2 = new Date(data.syncedAt);
-        if (confirm('Game #' + data.game.num + ' is in progress on another device (saved ' + d2.toLocaleTimeString() + '). Load it?')) {
-          applyCloudData(data);
-        }
+      if (data.syncedAt > localAt + 5000) {
+        applyCloudData(data);
       }
     })
     .catch(function() {});
@@ -872,17 +844,14 @@ function _trackWrite() { _lastLocalWrite = Date.now(); }
 function silentCloudPoll() {
   var url = getCfUrl();
   if (!url) return;
-  // Don't overwrite if this device wrote something in the last 15 seconds
   if (Date.now() - _lastLocalWrite < 15000) return;
   fetch(url + '/sync-data', { cache: 'no-store' })
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (!data || !data.syncedAt) return;
       var localAt = S.season.syncedAt || 0;
-      // Only apply if cloud is newer and this device hasn't written recently
       if (data.syncedAt > localAt + 5000 && Date.now() - _lastLocalWrite > 15000) {
         applyCloudData(data);
-        toast('↓ Updated from cloud');
       }
     })
     .catch(function() {});
@@ -1120,12 +1089,14 @@ function timerStep() {
 function autoNextLevel() {
   if (S.timer.lvlIdx<S.levels.length-1) {
     S.timer.lvlIdx++; S.timer.secsLeft=S.levels[S.timer.lvlIdx].dur*60;
+    // Keep timer running — do not stop between levels
     refreshTimerDisp(); refreshBlindsDisp(); renderLevels();
+    setTimerBtn('&#9208; Pause','&#9208;');
     var l=S.levels[S.timer.lvlIdx];
     if (l.type==='break') { speak('Time for a break'); } else { speak('Blinds are up'); }
     toast(l.type==='break' ? '☕ Break time!' : 'Level '+(S.timer.lvlIdx+1)+': '+l.sb+'/'+l.bb);
-    pushLiveState();
-  } else { stopTimer(); toast('Final level reached!'); pushLiveState(); }
+    saveData(); pushLiveState(); syncPush(true);
+  } else { stopTimer(); toast('Final level reached!'); saveData(); pushLiveState(); }
 }
 function prevLvl() {
   if (S.timer.lvlIdx<=0) return;
