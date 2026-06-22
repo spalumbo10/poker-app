@@ -711,7 +711,8 @@ function pushLiveState() {
       bustOrder:  S.game.bustOrder,
       knockouts:  S.game.knockouts,
       buyIns:     S.game.buyIns,
-      addons:     S.game.addons
+      addons:     S.game.addons,
+      koBuyIns:   S.game.koBuyIns
     } : null,
     standings: standings.map(function(p){ return { name: p.name, pts: p.pts }; })
   };
@@ -789,6 +790,11 @@ function applyCloudData(data) {
         S.game.addons[n] = S.game.addons[n] || {full:0, partial:0};
         S.game.addons[n].full    = Math.max(S.game.addons[n].full||0,    (dg.addons[n]||{}).full||0);
         S.game.addons[n].partial = Math.max(S.game.addons[n].partial||0, (dg.addons[n]||{}).partial||0);
+      });
+      // koBuyIns: take max per player
+      Object.keys(dg.koBuyIns||{}).forEach(function(n) {
+        S.game.koBuyIns = S.game.koBuyIns || {};
+        S.game.koBuyIns[n] = Math.max(S.game.koBuyIns[n]||0, dg.koBuyIns[n]||0);
       });
     }
   } else if (!S.game) {
@@ -979,9 +985,9 @@ function startGame() {
   S.lastWeek  = week;
   var gamesThisWeek = S.season.games.filter(function(g){ return g.week === week; }).length;
   var gameInWeek = gamesThisWeek + 1;
-  var buyIns = {};
-  selectedPlayers.forEach(function(n){ buyIns[n] = 1; });
-  S.game = {num:S.season.games.length+1, week:week, gameInWeek:gameInWeek, players:selectedPlayers.slice(), bustOrder:[], knockouts:{}, addons:{}, mult:S.mult, buyIn:buyIn, buyIns:buyIns};
+  var buyIns = {}; var koBuyIns = {};
+  selectedPlayers.forEach(function(n){ buyIns[n] = 1; koBuyIns[n] = 1; });
+  S.game = {num:S.season.games.length+1, week:week, gameInWeek:gameInWeek, players:selectedPlayers.slice(), bustOrder:[], knockouts:{}, addons:{}, mult:S.mult, buyIn:buyIn, buyIns:buyIns, koBuyIns:koBuyIns};
   stopTimer();
   S.timer.lvlIdx=0; S.timer.secsLeft=S.levels[0].dur*60; S.timer.running=false;
   refreshGameTab(); updateSeasonStatus(); saveData();
@@ -1639,17 +1645,19 @@ function exportToClipboard() {
 
 // ─── Floor display ────────────────────────────────────────────────────────────
 // ─── Pot calculation ──────────────────────────────────────────────────────────
+var KO_COST = 10;
 function calcPot() {
   if (!S.game) return null;
-  var buyIn  = S.game.buyIn  || 0;
-  var buyIns = S.game.buyIns || {};
-  var addons = S.game.addons || {};
-  // sum all buy-in counts
+  var buyIn    = S.game.buyIn    || 0;
+  var buyIns   = S.game.buyIns   || {};
+  var addons   = S.game.addons   || {};
+  var koBuyIns = S.game.koBuyIns || {};
   var buyInTotal = Object.keys(buyIns).reduce(function(s,n){ return s + buyIns[n]; }, 0) * buyIn;
-  // full addon = 1.5x, partial addon = 1x
   var addonTotal = Object.keys(addons).reduce(function(s,n){
     return s + (addons[n].full||0)*1.5*buyIn + (addons[n].partial||0)*buyIn;
   }, 0);
+  var koTotal  = Object.keys(koBuyIns).reduce(function(s,n){ return s + koBuyIns[n]; }, 0) * KO_COST;
+  var koCount  = Object.keys(koBuyIns).reduce(function(s,n){ return s + koBuyIns[n]; }, 0);
   var gross = buyInTotal + addonTotal;
   var house = 2 * buyIn;
   var net   = Math.max(0, gross - house);
@@ -1659,7 +1667,7 @@ function calcPot() {
   } else {
     places = [{label:'1st',pct:0.45},{label:'2nd',pct:0.25},{label:'3rd',pct:0.15},{label:'4th',pct:0.10},{label:'5th',pct:0.05}];
   }
-  return {gross:gross, house:house, net:net, buyIn:buyIn, places:places};
+  return {gross:gross, house:house, net:net, buyIn:buyIn, koTotal:koTotal, koCount:koCount, places:places};
 }
 
 function renderBuyInList() {
@@ -1671,18 +1679,19 @@ function renderBuyInList() {
   var buyIn  = S.game.buyIn  || 0;
   var pot    = calcPot();
   if (sum) sum.textContent = pot ? 'Total pot: $' + pot.gross : '';
+  var koBuyIns = S.game.koBuyIns || {};
   el.innerHTML = S.game.players.map(function(name) {
     var biCount  = buyIns[name] || 1;
     var rebuys   = biCount - 1;
     var fullAd   = (addons[name]||{}).full    || 0;
     var partAd   = (addons[name]||{}).partial || 0;
-    var playerTotal = biCount*buyIn + fullAd*1.5*buyIn + partAd*buyIn;
+    var koCount  = koBuyIns[name] || 0;
+    var playerTotal = biCount*buyIn + fullAd*1.5*buyIn + partAd*buyIn + koCount*KO_COST;
     return '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:8px">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
         '<span style="font-size:14px;font-weight:600">'+esc(name)+'</span>'+
         '<span style="font-size:13px;font-weight:700;color:var(--accent)">$'+playerTotal+'</span>'+
       '</div>'+
-      // Buy-ins row
       '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'+
         '<span style="font-size:11px;color:var(--text3);min-width:80px">Buy-ins</span>'+
         '<button class="sm" onclick="adjustBuyIns(\''+escJS(name)+'\',-1)" '+(biCount<=1?'disabled':'')+'>−</button>'+
@@ -1690,7 +1699,13 @@ function renderBuyInList() {
         '<button class="sm" onclick="adjustBuyIns(\''+escJS(name)+'\',1)">+</button>'+
         (rebuys>0?'<span style="font-size:11px;color:var(--orange);margin-left:4px">'+rebuys+' rebuy'+(rebuys>1?'s':'')+'</span>':'')+
       '</div>'+
-      // Full add-on row
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'+
+        '<span style="font-size:11px;color:var(--text3);min-width:80px">Knockouts <span style="color:var(--text3)">($'+KO_COST+' ea)</span></span>'+
+        '<button class="sm" onclick="adjustKoBuyIn(\''+escJS(name)+'\',-1)" '+(koCount<=0?'disabled':'')+'>−</button>'+
+        '<span style="font-size:14px;font-weight:700;min-width:22px;text-align:center">'+koCount+'</span>'+
+        '<button class="sm" onclick="adjustKoBuyIn(\''+escJS(name)+'\',1)">+</button>'+
+        (koCount>0?'<span style="font-size:11px;color:var(--text3);margin-left:4px">$'+(koCount*KO_COST)+'</span>':'')+
+      '</div>'+
       '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'+
         '<span style="font-size:11px;color:var(--text3);min-width:80px">Full add-on <span style="color:var(--text3)">(1.5x)</span></span>'+
         '<button class="sm" onclick="adjustAddon(\''+escJS(name)+'\',\'full\',-1)" '+(fullAd===0?'disabled':'')+'>−</button>'+
@@ -1698,7 +1713,6 @@ function renderBuyInList() {
         '<button class="sm" onclick="adjustAddon(\''+escJS(name)+'\',\'full\',1)">+</button>'+
         (fullAd>0?'<span style="font-size:11px;color:var(--text3);margin-left:4px">$'+(fullAd*1.5*buyIn)+'</span>':'')+
       '</div>'+
-      // Partial add-on row
       '<div style="display:flex;align-items:center;gap:6px">'+
         '<span style="font-size:11px;color:var(--text3);min-width:80px">Partial add-on <span style="color:var(--text3)">(1x)</span></span>'+
         '<button class="sm" onclick="adjustAddon(\''+escJS(name)+'\',\'partial\',-1)" '+(partAd===0?'disabled':'')+'>−</button>'+
@@ -1726,6 +1740,13 @@ function adjustAddon(name, type, delta) {
   renderBuyInList(); renderFloorPot(); saveData(); pushLiveState(); syncPush(true);
 }
 
+function adjustKoBuyIn(name, delta) {
+  if (!S.game) return;
+  if (!S.game.koBuyIns) S.game.koBuyIns = {};
+  S.game.koBuyIns[name] = Math.max(0, (S.game.koBuyIns[name]||0) + delta);
+  renderBuyInList(); renderFloorPot(); saveData(); pushLiveState(); syncPush(true);
+}
+
 function renderFloorPot() {
   var el = document.getElementById('f-pot-body'); if (!el) return;
   var pot = calcPot();
@@ -1743,15 +1764,19 @@ function renderFloorPot() {
   }).join('');
 
   el.innerHTML =
-    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">'+
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">'+
       '<span style="font-size:13px;color:#8ab0d0">Total pot</span>'+
       '<span style="font-size:26px;font-weight:800;color:#7aabff">$'+pot.gross+
         '<span style="font-size:13px;font-weight:400;color:#8ab0d0;margin-left:6px">(league: $'+pot.house+')</span>'+
       '</span>'+
     '</div>'+
-    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid #2a4870">'+
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #2a4870">'+
       '<span style="font-size:13px;color:#8ab0d0">Prize pool</span>'+
       '<span style="font-size:22px;font-weight:800;color:#6a9fff">$'+pot.net+'</span>'+
+    '</div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid #2a4870">'+
+      '<span style="font-size:13px;color:#8ab0d0">KO pool <span style="font-size:11px">('+pot.koCount+' bounties)</span></span>'+
+      '<span style="font-size:22px;font-weight:800;color:#f97316">$'+pot.koTotal+'</span>'+
     '</div>'+
     payoutRows;
 }
