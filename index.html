@@ -123,6 +123,35 @@ h2{font-size:17px;font-weight:600}
 #app{max-width:920px;margin:0 auto;padding:20px}
 #toast{position:fixed;bottom:24px;right:24px;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r);padding:12px 18px;font-size:13px;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;z-index:9999}
 #toast.on{transform:none;opacity:1}
+
+@media(max-width:600px){
+  #app{padding:12px}
+  h1{font-size:17px}
+  /* Header: stack title and buttons */
+  #app>.between{flex-wrap:wrap;gap:8px}
+  #app>.between .row{flex-wrap:wrap}
+  /* Tabs scroll horizontally */
+  .tabs{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
+  .tab{white-space:nowrap;padding:10px 12px;font-size:12px}
+  /* 2-col grids collapse to 1 col */
+  .g2,.g3{grid-template-columns:1fr}
+  /* Blind level rows: hide ante column, compress */
+  .lvl-hdr{grid-template-columns:28px 1fr 1fr 1fr 28px;font-size:10px}
+  .lvl-row.normal{grid-template-columns:28px 1fr 1fr 1fr 1fr 28px;font-size:12px}
+  .lvl-row.brk{grid-template-columns:28px 1fr 1fr 28px;font-size:12px}
+  /* Timer bigger on mobile */
+  #timer-disp{font-size:48px}
+  /* Bust buttons full width, larger touch target */
+  .bust-btn{padding:16px;font-size:16px}
+  /* Cards less padding */
+  .card{padding:14px}
+  .inset{padding:10px}
+  /* Buy-in/bust rows wrap */
+  .bust-row{flex-wrap:wrap}
+  /* Toast at bottom center */
+  #toast{right:50%;transform:translateX(50%) translateY(80px)}
+  #toast.on{transform:translateX(50%) translateY(0)}
+}
 </style>
 </head>
 <body>
@@ -164,7 +193,7 @@ h2{font-size:17px;font-weight:600}
         <div class="fl">Time remaining</div>
         <div id="f-timer" class="f-timer" style="font-size:90px">--:--</div>
         <div id="f-lvl-lbl" style="font-size:13px;color:#2a3d58;margin-bottom:6px">—</div>
-        <div style="display:flex;gap:14px;margin-top:8px;width:100%;justify-content:center">
+        <div id="f-ctrl-row" style="display:flex;gap:14px;margin-top:8px;width:100%;justify-content:center;align-items:center">
           <button class="f-ctrl-btn" id="f-btn-prev" onclick="prevLvl()" title="Previous level" style="flex:1;padding:8px 0;font-size:16px">&#9664;&#9664;</button>
           <button class="f-ctrl-btn play" id="f-btn-tp" onclick="toggleTimer()" style="width:78px;height:78px;border-radius:50%;padding:0;overflow:hidden;font-size:28px;flex:none;position:relative">&#9654;</button>
           <button class="f-ctrl-btn" id="f-btn-next" onclick="nextLvl()" title="Next level" style="flex:1;padding:8px 0;font-size:16px">&#9654;&#9654;</button>
@@ -190,6 +219,7 @@ h2{font-size:17px;font-weight:600}
   </div>
 
   <button onclick="closeFloor()" style="position:fixed;top:12px;right:12px;font-size:12px;padding:5px 14px;color:var(--text3);background:#060d1a;border:1px solid #1a2d45;border-radius:6px">Close</button>
+  <button onclick="logout()" style="position:fixed;top:12px;right:80px;font-size:12px;padding:5px 14px;color:var(--text3);background:#060d1a;border:1px solid #1a2d45;border-radius:6px">&#128274; Logout</button>
 </div>
 
 <!-- ═══ MAIN APP ════════════════════════════════════════════════════════════ -->
@@ -202,6 +232,7 @@ h2{font-size:17px;font-weight:600}
     <div class="row">
       <button onclick="openFloor()">&#9654; Floor Display</button>
       <button onclick="saveData(true)" class="sm">&#128190; Save</button>
+      <button onclick="logout()" class="sm" style="color:var(--text3)">&#128274; Logout</button>
     </div>
   </div>
 
@@ -578,12 +609,21 @@ function applyRole(role) {
     var el = document.getElementById(id);
     if (el) el.style.display = role === 'admin' ? '' : 'none';
   });
-  // Viewers land on Season tab; hide the Save button
   if (role === 'viewer') {
     goTab('season');
     var saveBtn = document.querySelector('button[onclick="saveData(true)"]');
     if (saveBtn) saveBtn.style.display = 'none';
   }
+  // Always apply floor button visibility based on role
+  var floorCtls = document.getElementById('f-ctrl-row');
+  if (floorCtls) floorCtls.style.display = role === 'viewer' ? 'none' : '';
+}
+function logout() {
+  sessionStorage.removeItem('pkr4-role');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('pw-gate').style.display = 'flex';
+  document.getElementById('pw-input').value = '';
+  document.getElementById('pw-error').textContent = '';
 }
 function changePassword() {
   var a1  = document.getElementById('pw-new').value;
@@ -897,12 +937,10 @@ function setTimerBtn(full, floor) {
   var b2=document.getElementById('f-btn-tp');
   if(b2) {
     var isPlay = floor==='&#9654;';
-    var img = isPlay ? S.ui.startImg : S.ui.pauseImg;
+    var img = getButtonImgSrc(isPlay ? 'start' : 'pause');
     if(img){
-      b2.style.padding='0'; b2.style.overflow='hidden';
-      b2.innerHTML='<img src="'+img+'" style="width:100%;height:100%;object-fit:cover;display:block">';
+      b2.innerHTML=floor+'<img src="'+img+'" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'">';
     } else {
-      b2.style.padding=''; b2.style.overflow='';
       b2.innerHTML=floor;
     }
   }
@@ -1650,10 +1688,8 @@ function openFloor() {
   document.getElementById('floor').classList.add('on');
   refreshTimerDisp(); refreshBlindsDisp(); renderFloorStandings(); refreshFloorPlayBtn(); renderFloorPot();
   var isViewer = sessionStorage.getItem('pkr4-role') === 'viewer';
-  ['f-btn-prev','f-btn-tp','f-btn-next'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.style.display = isViewer ? 'none' : '';
-  });
+  var row = document.getElementById('f-ctrl-row');
+  if (row) row.style.display = isViewer ? 'none' : '';
 }
 function closeFloor() { document.getElementById('floor').classList.remove('on'); }
 
