@@ -558,6 +558,7 @@ function cloneDefaults() {
 
 function saveData(msg) {
   localStorage.setItem('pkr4', JSON.stringify(S));
+  _lastLocalWrite = Date.now();
   if (msg) toast('Saved');
 }
 
@@ -726,7 +727,7 @@ function testCfConnection() {
   pushLiveState();
 }
 
-// ─── Cloud season sync ────────────────────────────────────────────────────────
+// ─── Cloud sync (full state) ──────────────────────────────────────────────────
 function syncPush(silent) {
   var url = S.ui && S.ui.cfUrl;
   var key = S.ui && S.ui.cfKey;
@@ -734,15 +735,62 @@ function syncPush(silent) {
   var players = S.players.map(function(p) {
     return { id: p.id, name: p.name, photoUrl: p.photoUrl || null };
   });
-  var payload = JSON.stringify({ syncedAt: Date.now(), season: S.season, players: players, levels: S.levels });
+  // Include full game state so other devices can pick up mid-game
+  var timerSnap = S.timer.running
+    ? { lvlIdx: S.timer.lvlIdx, secsLeft: S.timer.secsLeft, running: true, snapAt: Date.now() }
+    : { lvlIdx: S.timer.lvlIdx, secsLeft: S.timer.secsLeft, running: false };
+  var payload = JSON.stringify({
+    syncedAt: Date.now(),
+    season: S.season,
+    players: players,
+    levels: S.levels,
+    game: S.game || null,
+    timer: timerSnap,
+    mult: S.mult
+  });
   fetch(url + '/sync-data', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
     body: payload
   }).then(function(r) {
-    if (!silent) cfStatus(r.ok ? '✓ Season synced' : '✗ Sync error ' + r.status, r.ok);
+    if (!silent) cfStatus(r.ok ? '✓ Synced to cloud' : '✗ Sync error ' + r.status, r.ok);
+    if (r.ok) { var el=document.getElementById('sync-dot'); if(el){el.title='Last synced '+new Date().toLocaleTimeString();} }
   }).catch(function() { if (!silent) cfStatus('✗ Sync failed', false); });
 }
+
+function applyCloudData(data) {
+  if (!data) return;
+  S.season = data.season || S.season;
+  if (data.levels && data.levels.length) S.levels = data.levels;
+  if (data.mult) S.mult = data.mult;
+  // Restore game state
+  if (data.game) {
+    S.game = data.game;
+  } else {
+    S.game = null;
+  }
+  // Restore timer, adjusting for elapsed time if it was running
+  if (data.timer) {
+    S.timer.lvlIdx = data.timer.lvlIdx || 0;
+    var secs = data.timer.secsLeft || 0;
+    if (data.timer.running && data.timer.snapAt) {
+      var elapsed = Math.floor((Date.now() - data.timer.snapAt) / 1000);
+      secs = Math.max(0, secs - elapsed);
+    }
+    S.timer.secsLeft = secs;
+    S.timer.running = false; // always start paused on new device
+  }
+  // Merge players
+  (data.players || []).forEach(function(cp) {
+    var local = S.players.find(function(p) { return p.id === cp.id || p.name === cp.name; });
+    if (local) { local.photoUrl = cp.photoUrl; }
+    else { S.players.push({ id: cp.id, name: cp.name, photo: null, photoUrl: cp.photoUrl || null }); }
+  });
+  saveData();
+  refreshGameTab(); renderSeason(); renderFloorStandings(); renderRoster(); renderLevels();
+  updateSeasonStatus(); refreshTimerDisp(); refreshBlindsDisp(); refreshMultBtns();
+}
+
 function syncPull() {
   var url = S.ui && S.ui.cfUrl;
   if (!url) { cfStatus('No Worker URL set', false); return; }
@@ -750,26 +798,20 @@ function syncPull() {
   fetch(url + '/sync-data', { cache: 'no-store' })
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      if (!data || !data.season) { cfStatus('No cloud data found', false); return; }
+      if (!data || !data.syncedAt) { cfStatus('No cloud data found', false); return; }
       var localAt = S.season.syncedAt || 0;
       var cloudAt = data.syncedAt || 0;
-      var msg = cloudAt > localAt
-        ? 'Cloud data is newer (' + new Date(cloudAt).toLocaleDateString() + '). Load it?'
-        : 'Local data appears newer. Load cloud data anyway?';
+      var d = new Date(cloudAt);
+      var when = d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
+      var gameNote = data.game ? ' (game #' + data.game.num + ' in progress)' : '';
+      var msg = 'Load cloud data from ' + when + gameNote + '?';
       if (!confirm(msg)) { cfStatus('Cancelled', null); return; }
-      S.season = data.season;
-      if (data.levels && data.levels.length) S.levels = data.levels;
-      data.players.forEach(function(cp) {
-        var local = S.players.find(function(p) { return p.id === cp.id || p.name === cp.name; });
-        if (local) { local.photoUrl = cp.photoUrl; }
-        else { S.players.push({ id: cp.id, name: cp.name, photo: null, photoUrl: cp.photoUrl || null }); }
-      });
-      saveData();
-      refreshGameTab(); renderSeason(); renderFloorStandings(); renderRoster(); renderLevels(); updateSeasonStatus();
+      applyCloudData(data);
       cfStatus('✓ Loaded from cloud', true);
     })
     .catch(function() { cfStatus('✗ Failed to load', false); });
 }
+
 function checkCloudSync() {
   var url = S.ui && S.ui.cfUrl;
   if (!url) return;
@@ -778,22 +820,54 @@ function checkCloudSync() {
     .then(function(data) {
       if (!data || !data.syncedAt) return;
       var localAt = S.season.syncedAt || 0;
-      if (data.syncedAt > localAt + 60000) {
-        if (confirm('Cloud has newer season data (' + new Date(data.syncedAt).toLocaleDateString() + '). Load it?')) {
-          S.season = data.season;
-          if (data.levels && data.levels.length) S.levels = data.levels;
-          data.players.forEach(function(cp) {
-            var local = S.players.find(function(p) { return p.id === cp.id || p.name === cp.name; });
-            if (local) { local.photoUrl = cp.photoUrl; }
-            else { S.players.push({ id: cp.id, name: cp.name, photo: null, photoUrl: cp.photoUrl || null }); }
-          });
-          saveData();
-          refreshGameTab(); renderSeason(); renderFloorStandings(); renderRoster(); renderLevels(); updateSeasonStatus();
+      // Auto-load if cloud is meaningfully newer (>60s) and no local game in progress
+      if (data.syncedAt > localAt + 60000 && !S.game) {
+        var d = new Date(data.syncedAt);
+        var when = d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
+        var gameNote = data.game ? '\nGame #' + data.game.num + ' is in progress on another device.' : '';
+        if (confirm('Cloud has newer data from ' + when + '.' + gameNote + '\nLoad it?')) {
+          applyCloudData(data);
+        }
+      } else if (data.syncedAt > localAt + 60000 && data.game) {
+        // Cloud has a game in progress — always prompt
+        var d2 = new Date(data.syncedAt);
+        if (confirm('Game #' + data.game.num + ' is in progress on another device (saved ' + d2.toLocaleTimeString() + '). Load it?')) {
+          applyCloudData(data);
         }
       }
     })
     .catch(function() {});
 }
+
+// Re-check cloud when tab becomes visible (switching devices / returning to app)
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible') checkCloudSync();
+});
+
+// Background poll — silently apply cloud updates if this device isn't the active one
+var _lastLocalWrite = Date.now();
+var _origSaveData = null;
+function _trackWrite() { _lastLocalWrite = Date.now(); }
+
+function silentCloudPoll() {
+  var url = S.ui && S.ui.cfUrl;
+  if (!url) return;
+  // Don't overwrite if this device wrote something in the last 15 seconds
+  if (Date.now() - _lastLocalWrite < 15000) return;
+  fetch(url + '/sync-data', { cache: 'no-store' })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data || !data.syncedAt) return;
+      var localAt = S.season.syncedAt || 0;
+      // Only apply if cloud is newer and this device hasn't written recently
+      if (data.syncedAt > localAt + 5000 && Date.now() - _lastLocalWrite > 15000) {
+        applyCloudData(data);
+        toast('↓ Updated from cloud');
+      }
+    })
+    .catch(function() {});
+}
+setInterval(silentCloudPoll, 10000);
 
 // ─── Toast ───────────────────────────────────────────────────────────────────
 var _toastT;
@@ -915,7 +989,7 @@ function startGame() {
   stopTimer();
   S.timer.lvlIdx=0; S.timer.secsLeft=S.levels[0].dur*60; S.timer.running=false;
   refreshGameTab(); updateSeasonStatus(); saveData();
-  toast('Game #'+S.game.num+' started!'); pushLiveState();
+  toast('Game #'+S.game.num+' started!'); pushLiveState(); syncPush(true);
 }
 
 // ─── Timer ───────────────────────────────────────────────────────────────────
@@ -930,7 +1004,7 @@ function toggleTimer() {
     timerTick=setInterval(timerStep,1000);
     setTimerBtn('&#9208; Pause', '&#9208;');
   }
-  saveData(); pushLiveState();
+  saveData(); pushLiveState(); syncPush(true);
 }
 function setTimerBtn(full, floor) {
   var b1=document.getElementById('btn-tp'); if(b1) b1.innerHTML=full;
@@ -1133,11 +1207,11 @@ function refreshBlindsDisp() {
 // ─── Bust tracking ────────────────────────────────────────────────────────────
 function bust(name) {
   if (!S.game) return;
-  S.game.bustOrder.push(name); renderBustActive(); renderBustLog(); renderKoList(); renderFloorStandings(); saveData(); pushLiveState();
+  S.game.bustOrder.push(name); renderBustActive(); renderBustLog(); renderKoList(); renderFloorStandings(); saveData(); pushLiveState(); syncPush(true);
 }
 function undoBust(idx) {
   if (!S.game) return;
-  S.game.bustOrder.splice(idx,1); renderBustActive(); renderBustLog(); renderKoList(); renderFloorStandings(); saveData(); pushLiveState();
+  S.game.bustOrder.splice(idx,1); renderBustActive(); renderBustLog(); renderKoList(); renderFloorStandings(); saveData(); pushLiveState(); syncPush(true);
 }
 function adjustKo(name, delta) {
   if (!S.game) return;
@@ -1146,7 +1220,7 @@ function adjustKo(name, delta) {
   var next = Math.max(0, cur + delta);
   if (next === 0) delete S.game.knockouts[name];
   else S.game.knockouts[name] = next;
-  renderKoList(); renderBustLog(); renderFloorStandings(); saveData(); pushLiveState();
+  renderKoList(); renderBustLog(); renderFloorStandings(); saveData(); pushLiveState(); syncPush(true);
 }
 function renderKoList() {
   var el = document.getElementById('ko-list');
@@ -1250,7 +1324,7 @@ function finalizeGame() {
 }
 function abandonGame() {
   if(!confirm('Abandon this game? All bust data will be lost.')) return;
-  stopTimer(); S.game=null; refreshGameTab(); updateSeasonStatus(); saveData();
+  stopTimer(); S.game=null; refreshGameTab(); updateSeasonStatus(); saveData(); syncPush(true);
 }
 
 // ─── Blind levels ─────────────────────────────────────────────────────────────
