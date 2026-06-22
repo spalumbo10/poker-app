@@ -1754,6 +1754,11 @@ function adjustBuyIns(name, delta) {
   if (!S.game.buyIns) S.game.buyIns = {};
   var cur = S.game.buyIns[name] || 1;
   S.game.buyIns[name] = Math.max(1, cur + delta);
+  // Adding a rebuy also adds a KO by default (user can manually reduce KO if they didn't buy one)
+  if (delta > 0) {
+    if (!S.game.koBuyIns) S.game.koBuyIns = {};
+    S.game.koBuyIns[name] = (S.game.koBuyIns[name] || 0) + 1;
+  }
   renderBuyInList(); renderFloorPot(); saveData(); pushLiveState(); syncPush(true);
 }
 
@@ -1835,10 +1840,21 @@ function renderFloorStandings() {
     });
   }
 
-  // Use pre-computed season money stats from renderSeason
-  var seasonMoney    = _seasonMoney;
+  // Use pre-computed season money stats from renderSeason, then add current game spending
+  var seasonMoney    = {};
   var seasonWinnings = _seasonWinnings;
   var seasonKoMoney  = _seasonKoMoney;
+  Object.keys(_seasonMoney).forEach(function(n){ seasonMoney[n] = _seasonMoney[n]; });
+  if (S.game) {
+    var bi = S.game.buyIn || 0;
+    (S.game.players || []).forEach(function(name) {
+      var biCount = (S.game.buyIns && S.game.buyIns[name]) || 1;
+      var ads     = (S.game.addons && S.game.addons[name]) || {};
+      var koB     = (S.game.koBuyIns && S.game.koBuyIns[name]) || 0;
+      var spent   = biCount*bi + (ads.full||0)*1.5*bi + (ads.partial||0)*bi + koB*KO_COST;
+      seasonMoney[name] = (seasonMoney[name] || 0) + spent;
+    });
+  }
 
   // Merge season totals with in-progress game players
   var names = {};
