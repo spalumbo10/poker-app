@@ -1296,8 +1296,9 @@ function finalizeGame() {
     S.game.bustOrder.forEach(function(n){out[n]=true;});
     S.game.players.forEach(function(n){if(!out[n]) S.game.bustOrder.push(n);});
   }
-  var kos    = S.game.knockouts || {};
-  var addons = S.game.addons   || {};
+  var kos      = S.game.knockouts || {};
+  var addons   = S.game.addons   || {};
+  var koBuyIns = S.game.koBuyIns || {};
   var winnerName = S.game.bustOrder[S.game.bustOrder.length-1];
   var results=S.game.bustOrder.map(function(name,i){
     var bustPts  = (i+1)*S.game.mult;
@@ -1306,7 +1307,8 @@ function finalizeGame() {
     var rebuys   = Math.max(0, (S.game.buyIns&&S.game.buyIns[name]||1) - 1);
     var fullAd   = (addons[name]||{}).full    || 0;
     var partAd   = (addons[name]||{}).partial || 0;
-    return {name:name,pos:i+1,pts:bustPts+koPts+winPts,bustPts:bustPts,koPts:koPts,winPts:winPts,kos:kos[name]||0,rebuys:rebuys,fullAddons:fullAd,partialAddons:partAd};
+    var kosBought = koBuyIns[name] || 0;
+    return {name:name,pos:i+1,pts:bustPts+koPts+winPts,bustPts:bustPts,koPts:koPts,winPts:winPts,kos:kos[name]||0,rebuys:rebuys,fullAddons:fullAd,partialAddons:partAd,kosBought:kosBought};
   });
   results.forEach(function(r){
     if(!S.season.totals[r.name]) S.season.totals[r.name]=0;
@@ -1486,7 +1488,8 @@ function renderSeason() {
         if (!seasonMoney[r.name]) seasonMoney[r.name] = 0;
         var spent = (1 + (r.rebuys||0)) * bi
                   + (r.fullAddons||0)    * 1.5 * bi
-                  + (r.partialAddons||0) * bi;
+                  + (r.partialAddons||0) * bi
+                  + (r.kosBought||0)     * KO_COST;
         seasonMoney[r.name] += spent;
         if (rank < places.length && net > 0) {
           if (!seasonWinnings[r.name]) seasonWinnings[r.name] = 0;
@@ -1861,7 +1864,8 @@ function renderFloorStandings() {
         var bi      = S.game.buyIn || 0;
         var biCount = (S.game.buyIns&&S.game.buyIns[p.name]) || 1;
         var ads     = (S.game.addons&&S.game.addons[p.name]) || {};
-        var spent   = biCount*bi + (ads.full||0)*1.5*bi + (ads.partial||0)*bi;
+        var koB     = (S.game.koBuyIns&&S.game.koBuyIns[p.name]) || 0;
+        var spent   = biCount*bi + (ads.full||0)*1.5*bi + (ads.partial||0)*bi + koB*KO_COST;
         var moneyStr = bi > 0 ? ' · $'+spent : '';
         gameTag = '<span style="font-size:12px;color:#8ab0d0;margin-left:6px">(playing'+moneyStr+')</span>';
       }
