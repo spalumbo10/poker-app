@@ -429,17 +429,19 @@ h2{font-size:17px;font-weight:600}
     <!-- Password -->
     <div class="card mt16">
       <h2 style="margin-bottom:4px">App password</h2>
-      <div style="font-size:13px;color:var(--text3);margin-bottom:14px">Admin sees everything. Viewer sees Season and Floor Display only.</div>
-      <div class="lbl">Admin password</div>
-      <input type="password" id="pw-new" placeholder="Enter admin password" style="margin-bottom:8px">
-      <div class="lbl">Confirm admin password</div>
-      <input type="password" id="pw-confirm" placeholder="Confirm admin password" style="margin-bottom:14px">
-      <div class="lbl">Viewer password</div>
-      <input type="password" id="pw-viewer-new" placeholder="Enter viewer password" style="margin-bottom:8px">
-      <div class="lbl">Confirm viewer password</div>
-      <input type="password" id="pw-viewer-confirm" placeholder="Confirm viewer password" style="margin-bottom:12px">
+      <div style="font-size:13px;color:var(--text3);margin-bottom:14px">Passwords are stored securely on the Cloudflare Worker. Admin sees everything; Viewer sees Season and Floor Display only.</div>
+      <div class="lbl">Current admin password</div>
+      <input type="password" id="pw-current" placeholder="Your current admin password" style="margin-bottom:14px">
+      <div class="lbl">New admin password</div>
+      <input type="password" id="pw-new" placeholder="New admin password" style="margin-bottom:8px">
+      <div class="lbl">Confirm new admin password</div>
+      <input type="password" id="pw-confirm" placeholder="Confirm new admin password" style="margin-bottom:14px">
+      <div class="lbl">New viewer password</div>
+      <input type="password" id="pw-viewer-new" placeholder="New viewer password (optional)" style="margin-bottom:8px">
+      <div class="lbl">Confirm new viewer password</div>
+      <input type="password" id="pw-viewer-confirm" placeholder="Confirm new viewer password" style="margin-bottom:12px">
       <div class="row" style="gap:10px;align-items:center">
-        <button class="sm primary" onclick="changePassword()">Save passwords</button>
+        <button class="sm primary" onclick="changePassword()">Update passwords</button>
         <span id="pw-change-status" style="font-size:12px;color:var(--text3)"></span>
       </div>
     </div>
@@ -487,6 +489,16 @@ h2{font-size:17px;font-weight:600}
 <div id="toast"></div>
 
 <script>
+// ─── App defaults (used when no custom value is stored) ──────────────────────
+var APP_DEFAULTS = {
+  ghPhotosUrl: 'https://spalumbo10.github.io/poker-app/photos',
+  cfUrl:       'https://cbpoker.smpalumb.workers.dev',
+  cfKey:       'jackfive'
+};
+function getCfUrl()       { return (S.ui && S.ui.cfUrl)       || APP_DEFAULTS.cfUrl; }
+function getCfKey()       { return (S.ui && S.ui.cfKey)       || APP_DEFAULTS.cfKey; }
+function getGhPhotosUrl() { return (S.ui && S.ui.ghPhotosUrl) || APP_DEFAULTS.ghPhotosUrl; }
+
 // ─── Defaults ────────────────────────────────────────────────────────────────
 var DEFAULTS = [
   {type:'blind', sb:5,   bb:10,   ante:10,  dur:8},
@@ -563,46 +575,40 @@ function saveData(msg) {
 }
 
 // ─── Password gate ────────────────────────────────────────────────────────────
-function hashPassword(pw) {
-  var h = 5381;
-  for (var i = 0; i < pw.length; i++) h = ((h << 5) + h) ^ pw.charCodeAt(i);
-  return (h >>> 0).toString(36);
-}
 function initPasswordGate() {
-  var adminPw = localStorage.getItem('pkr4-pw');
-  var viewerPw = localStorage.getItem('pkr4-vpw');
-  // No passwords set yet — open normally as admin
-  if (!adminPw && !viewerPw) {
-    sessionStorage.setItem('pkr4-role', 'admin');
-    applyRole('admin');
-    return;
-  }
-  // Already authenticated this session
   var role = sessionStorage.getItem('pkr4-role');
   if (role) { applyRole(role); return; }
-  // Show gate
   document.getElementById('pw-gate').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
   setTimeout(function(){ document.getElementById('pw-input').focus(); }, 100);
 }
 function checkPassword() {
-  var input    = document.getElementById('pw-input').value;
-  var adminPw  = localStorage.getItem('pkr4-pw');
-  var viewerPw = localStorage.getItem('pkr4-vpw');
-  var role = null;
-  if (!adminPw || hashPassword(input) === adminPw)  role = 'admin';
-  else if (viewerPw && hashPassword(input) === viewerPw) role = 'viewer';
-  if (role) {
-    sessionStorage.setItem('pkr4-role', role);
-    document.getElementById('pw-gate').style.display = 'none';
-    document.getElementById('app').style.display = '';
-    document.getElementById('pw-input').value = '';
-    applyRole(role);
-  } else {
-    document.getElementById('pw-error').textContent = 'Incorrect password';
-    document.getElementById('pw-input').value = '';
-    document.getElementById('pw-input').focus();
-  }
+  var input = document.getElementById('pw-input').value;
+  var errEl = document.getElementById('pw-error');
+  errEl.textContent = 'Checking…';
+  fetch(getCfUrl() + '/auth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: input })
+  })
+  .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+  .then(function(res) {
+    if (res.ok && res.data.role) {
+      sessionStorage.setItem('pkr4-role', res.data.role);
+      document.getElementById('pw-gate').style.display = 'none';
+      document.getElementById('app').style.display = '';
+      document.getElementById('pw-input').value = '';
+      errEl.textContent = '';
+      applyRole(res.data.role);
+    } else {
+      errEl.textContent = 'Incorrect password';
+      document.getElementById('pw-input').value = '';
+      document.getElementById('pw-input').focus();
+    }
+  })
+  .catch(function() {
+    errEl.textContent = 'Connection error — check Worker URL in settings';
+  });
 }
 function applyRole(role) {
   var adminOnly = ['nav-game','nav-blinds','nav-players','tab-game','tab-blinds','tab-players'];
@@ -627,23 +633,37 @@ function logout() {
   document.getElementById('pw-error').textContent = '';
 }
 function changePassword() {
+  var cur = document.getElementById('pw-current').value;
   var a1  = document.getElementById('pw-new').value;
   var a2  = document.getElementById('pw-confirm').value;
   var v1  = document.getElementById('pw-viewer-new').value;
   var v2  = document.getElementById('pw-viewer-confirm').value;
   var st  = document.getElementById('pw-change-status');
-  if (!a1) { st.style.color='var(--red)'; st.textContent='Enter an admin password'; return; }
+  if (!cur) { st.style.color='var(--red)'; st.textContent='Enter your current admin password'; return; }
+  if (!a1)  { st.style.color='var(--red)'; st.textContent='Enter a new admin password'; return; }
   if (a1 !== a2) { st.style.color='var(--red)'; st.textContent='Admin passwords do not match'; return; }
   if (v1 && v1 !== v2) { st.style.color='var(--red)'; st.textContent='Viewer passwords do not match'; return; }
-  localStorage.setItem('pkr4-pw', hashPassword(a1));
-  if (v1) localStorage.setItem('pkr4-vpw', hashPassword(v1));
-  sessionStorage.setItem('pkr4-role', 'admin');
-  document.getElementById('pw-new').value = '';
-  document.getElementById('pw-confirm').value = '';
-  document.getElementById('pw-viewer-new').value = '';
-  document.getElementById('pw-viewer-confirm').value = '';
-  st.style.color = 'var(--green)'; st.textContent = '✓ Passwords saved';
-  setTimeout(function(){ st.textContent = ''; }, 3000);
+  var body = { currentPw: cur, adminPw: a1 };
+  if (v1) body.viewerPw = v1;
+  st.style.color='var(--text3)'; st.textContent='Saving…';
+  fetch(getCfUrl() + '/set-passwords', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  })
+  .then(function(r) {
+    if (r.ok) {
+      ['pw-current','pw-new','pw-confirm','pw-viewer-new','pw-viewer-confirm'].forEach(function(id){
+        var el=document.getElementById(id); if(el) el.value='';
+      });
+      st.style.color='var(--green)'; st.textContent='✓ Passwords updated on server';
+      setTimeout(function(){ st.textContent=''; }, 3000);
+    } else {
+      st.style.color='var(--red)';
+      st.textContent = r.status===401 ? 'Current password incorrect' : 'Error updating passwords';
+    }
+  })
+  .catch(function() { st.style.color='var(--red)'; st.textContent='Connection error'; });
 }
 
 // ─── Cloudflare live display ──────────────────────────────────────────────────
@@ -654,12 +674,12 @@ function saveGhPhotosUrl() {
 }
 function loadGhPhotosUrl() {
   var el = document.getElementById('gh-photos-url');
-  if (el && S.ui.ghPhotosUrl) el.value = S.ui.ghPhotosUrl;
+  if (el) el.value = getGhPhotosUrl();
 }
 function testPhotoUrl() {
   var el = document.getElementById('photo-url-test');
   if (!el) return;
-  var base = S.ui && S.ui.ghPhotosUrl;
+  var base = getGhPhotosUrl();
   if (!base) { el.innerHTML = '<span style="color:var(--red)">No base URL set — enter one above first.</span>'; return; }
   // Show the first player's URL as a test
   var first = S.players && S.players[0];
@@ -683,8 +703,8 @@ function saveCfSettings() {
 function loadCfSettings() {
   var u = document.getElementById('cf-url');
   var k = document.getElementById('cf-key');
-  if (u && S.ui.cfUrl) u.value = S.ui.cfUrl;
-  if (k && S.ui.cfKey) k.value = S.ui.cfKey;
+  if (u) u.value = getCfUrl();
+  if (k) k.value = getCfKey();
   loadGhPhotosUrl();
 }
 function cfStatus(msg, ok) {
@@ -694,8 +714,8 @@ function cfStatus(msg, ok) {
   el.style.color = ok ? 'var(--green)' : (ok === false ? 'var(--red)' : 'var(--text3)');
 }
 function pushLiveState() {
-  var url = S.ui && S.ui.cfUrl;
-  var key = S.ui && S.ui.cfKey;
+  var url = getCfUrl();
+  var key = getCfKey();
   if (!url || !key) return;
   var standings = getStandings();
   var payload = {
@@ -729,8 +749,8 @@ function testCfConnection() {
 
 // ─── Cloud sync (full state) ──────────────────────────────────────────────────
 function syncPush(silent) {
-  var url = S.ui && S.ui.cfUrl;
-  var key = S.ui && S.ui.cfKey;
+  var url = getCfUrl();
+  var key = getCfKey();
   if (!url || !key) return;
   var players = S.players.map(function(p) {
     return { id: p.id, name: p.name, photoUrl: p.photoUrl || null };
@@ -792,7 +812,7 @@ function applyCloudData(data) {
 }
 
 function syncPull() {
-  var url = S.ui && S.ui.cfUrl;
+  var url = getCfUrl();
   if (!url) { cfStatus('No Worker URL set', false); return; }
   cfStatus('Loading…', null);
   fetch(url + '/sync-data', { cache: 'no-store' })
@@ -813,7 +833,7 @@ function syncPull() {
 }
 
 function checkCloudSync() {
-  var url = S.ui && S.ui.cfUrl;
+  var url = getCfUrl();
   if (!url) return;
   fetch(url + '/sync-data', { cache: 'no-store' })
     .then(function(r) { return r.json(); })
@@ -850,7 +870,7 @@ var _origSaveData = null;
 function _trackWrite() { _lastLocalWrite = Date.now(); }
 
 function silentCloudPoll() {
-  var url = S.ui && S.ui.cfUrl;
+  var url = getCfUrl();
   if (!url) return;
   // Don't overwrite if this device wrote something in the last 15 seconds
   if (Date.now() - _lastLocalWrite < 15000) return;
@@ -1864,13 +1884,13 @@ function getPhotoSrc(player) {
   if (!player) return null;
   if (player.photoUrl) return player.photoUrl;
   if (player.photo) return player.photo;
-  var base = S.ui && S.ui.ghPhotosUrl;
+  var base = getGhPhotosUrl();
   if (base) return base.replace(/\/$/, '') + '/' + encodeURIComponent(player.name.toLowerCase()) + '.jpg';
   return null;
 }
 function getButtonImgSrc(which) {
   if (S.ui && S.ui[which+'Img']) return S.ui[which+'Img'];
-  var base = S.ui && S.ui.ghPhotosUrl;
+  var base = getGhPhotosUrl();
   if (base) return base.replace(/\/$/, '') + '/' + which + '.jpg';
   return null;
 }
