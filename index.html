@@ -766,6 +766,10 @@ function applyCloudData(data) {
   S.season = data.season || S.season;
   if (data.levels && data.levels.length) S.levels = data.levels;
   if (data.mult) S.mult = data.mult;
+  // Detect game change so we know whether to sync the timer
+  var prevGameNum = S.game ? S.game.num : null;
+  var cloudGameNum = data.game ? data.game.num : null;
+  var gameChanged = prevGameNum !== cloudGameNum;
   // Merge game state — never regress local data, take the more complete version per field
   if (data.game) {
     if (!S.game || S.game.num !== data.game.num) {
@@ -797,11 +801,19 @@ function applyCloudData(data) {
         S.game.koBuyIns[n] = Math.max(S.game.koBuyIns[n]||0, dg.koBuyIns[n]||0);
       });
     }
-  } else if (!S.game) {
+  } else {
+    // Cloud has no game — clear local game regardless
     S.game = null;
   }
-  // Restore timer, adjusting for elapsed time if it was running
-  // Never touch the running clock — local timer state is authoritative
+  // Sync timer when game identity changes (new game started or finalized)
+  // During normal play within the same game, leave the local clock alone
+  if (gameChanged) {
+    stopTimer();
+    S.timer.lvlIdx  = (data.timer && data.timer.lvlIdx  != null) ? data.timer.lvlIdx  : 0;
+    S.timer.secsLeft = (data.timer && data.timer.secsLeft != null) ? data.timer.secsLeft : (S.levels[0] ? S.levels[0].dur*60 : 0);
+    S.timer.running = false;
+    setTimerBtn('&#9654; Start','&#9654;');
+  }
   // Merge players
   (data.players || []).forEach(function(cp) {
     var local = S.players.find(function(p) { return p.id === cp.id || p.name === cp.name; });
