@@ -801,14 +801,13 @@ function syncPull() {
 function checkCloudSync() {
   var url = getCfUrl();
   if (!url) return;
+  if (Date.now() - _lastLocalWrite < 15000) return;
   fetch(url + '/sync-data', { cache: 'no-store' })
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (!data || !data.syncedAt) return;
-      var localAt = S.season.syncedAt || 0;
-      if (data.syncedAt > localAt + 5000) {
-        applyCloudData(data);
-      }
+      if (Date.now() - _lastLocalWrite < 15000) return;
+      applyCloudData(data);
     })
     .catch(function() {});
 }
