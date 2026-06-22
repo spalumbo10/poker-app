@@ -193,10 +193,10 @@ h2{font-size:17px;font-weight:600}
         <div class="fl">Time remaining</div>
         <div id="f-timer" class="f-timer" style="font-size:90px">--:--</div>
         <div id="f-lvl-lbl" style="font-size:13px;color:#2a3d58;margin-bottom:6px">—</div>
-        <div id="f-ctrl-row" style="display:flex;gap:14px;margin-top:8px;width:100%;justify-content:center;align-items:center">
-          <button class="f-ctrl-btn" id="f-btn-prev" onclick="prevLvl()" title="Previous level" style="flex:1;padding:8px 0;font-size:16px">&#9664;&#9664;</button>
-          <button class="f-ctrl-btn play" id="f-btn-tp" onclick="toggleTimer()" style="width:78px;height:78px;border-radius:50%;padding:0;overflow:hidden;font-size:28px;flex:none;position:relative">&#9654;</button>
-          <button class="f-ctrl-btn" id="f-btn-next" onclick="nextLvl()" title="Next level" style="flex:1;padding:8px 0;font-size:16px">&#9654;&#9654;</button>
+        <div id="f-ctrl-row" style="display:flex;gap:20px;margin-top:8px;width:100%;justify-content:space-between;align-items:center">
+          <button class="f-ctrl-btn" id="f-btn-prev" onclick="prevLvl()" title="Previous level" style="flex:1;padding:14px 0;font-size:22px">&#9664;&#9664;</button>
+          <button class="f-ctrl-btn play" id="f-btn-tp" onclick="toggleTimer()" style="width:117px;height:117px;border-radius:50%;padding:0;overflow:hidden;font-size:42px;flex:none;position:relative">&#9654;</button>
+          <button class="f-ctrl-btn" id="f-btn-next" onclick="nextLvl()" title="Next level" style="flex:1;padding:14px 0;font-size:22px">&#9654;&#9654;</button>
         </div>
       </div>
 
@@ -1817,6 +1817,29 @@ function renderFloorStandings() {
     });
   }
 
+  // Compute season money stats per player from finalized games
+  var seasonMoney = {}, seasonWinnings = {}, seasonKoMoney = {};
+  S.season.games.forEach(function(g) {
+    var bi = g.buyIn || 0;
+    var mult = g.mult || 1;
+    var results = g.results || [];
+    var gKoBuyIns = g.koBuyIns || {};
+    var buyInTotal = results.reduce(function(s,r){ return s + (1+(r.rebuys||0)); }, 0) * bi;
+    var addonTotal = results.reduce(function(s,r){ return s + (r.fullAddons||0)*1.5*bi + (r.partialAddons||0)*bi; }, 0);
+    var net = Math.max(0, buyInTotal + addonTotal - 2*bi);
+    var places = net < 1000
+      ? [{pct:.50},{pct:.30},{pct:.20}]
+      : [{pct:.45},{pct:.25},{pct:.15},{pct:.10},{pct:.05}];
+    var sorted = results.slice().sort(function(a,b){ return b.pos-a.pos; });
+    sorted.forEach(function(r, rank) {
+      var koB = gKoBuyIns[r.name] != null ? gKoBuyIns[r.name] : (r.kosBought != null ? r.kosBought : 1);
+      var spent = (1+(r.rebuys||0))*bi + (r.fullAddons||0)*1.5*bi + (r.partialAddons||0)*bi + koB*KO_COST;
+      seasonMoney[r.name] = (seasonMoney[r.name]||0) + spent;
+      if (rank < places.length && net > 0) seasonWinnings[r.name] = (seasonWinnings[r.name]||0) + Math.floor(net*places[rank].pct);
+      if ((r.kos||0) > 0) seasonKoMoney[r.name] = (seasonKoMoney[r.name]||0) + 10*mult*r.kos;
+    });
+  });
+
   // Merge season totals with in-progress game players
   var names = {};
   Object.keys(S.season.totals).forEach(function(n){ names[n]=true; });
@@ -1875,10 +1898,24 @@ function renderFloorStandings() {
       }
     }
 
+    var money    = seasonMoney[p.name]    || 0;
+    var winnings = seasonWinnings[p.name] || 0;
+    var koMoney  = seasonKoMoney[p.name]  || 0;
+    var moneyLine = '';
+    if (money > 0 || winnings > 0 || koMoney > 0) {
+      var parts = [];
+      if (money    > 0) parts.push('<span style="color:#8ab0d0">$'+money+' in</span>');
+      if (winnings > 0) parts.push('<span style="color:#6dbe8a">$'+winnings+' won</span>');
+      if (koMoney  > 0) parts.push('<span style="color:#f97316">$'+koMoney+' KOs</span>');
+      moneyLine = '<div style="font-size:11px;display:flex;gap:8px;margin-top:2px;flex-wrap:wrap">'+parts.join('')+'</div>';
+    }
     return '<div class="f-standing-row'+(inTop5?' top5':'')+'">'+
       '<div class="f-srank'+rankCls+'">'+rankSym+'</div>'+
       avatarHtml+
-      '<div class="f-sname" style="display:flex;align-items:center;flex-wrap:wrap;gap:2px">'+esc(p.name)+rebuyTag+gameTag+'</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div class="f-sname" style="display:flex;align-items:center;flex-wrap:wrap;gap:2px">'+esc(p.name)+rebuyTag+gameTag+'</div>'+
+        moneyLine+
+      '</div>'+
       '<div>'+
         '<div class="f-spts">'+p.totalPts+'</div>'+
         '<div class="f-spts-lbl">pts</div>'+
