@@ -765,10 +765,33 @@ function applyCloudData(data) {
   S.season = data.season || S.season;
   if (data.levels && data.levels.length) S.levels = data.levels;
   if (data.mult) S.mult = data.mult;
-  // Restore game state
+  // Merge game state — never regress local data, take the more complete version per field
   if (data.game) {
-    S.game = data.game;
-  } else {
+    if (!S.game || S.game.num !== data.game.num) {
+      S.game = data.game;
+    } else {
+      var dg = data.game;
+      // bustOrder: take cloud version (undo is pushed immediately; 15s guard protects active device)
+      S.game.bustOrder = dg.bustOrder || S.game.bustOrder;
+      // knockouts: take max per player
+      Object.keys(dg.knockouts||{}).forEach(function(n) {
+        S.game.knockouts = S.game.knockouts || {};
+        S.game.knockouts[n] = Math.max(S.game.knockouts[n]||0, dg.knockouts[n]||0);
+      });
+      // buyIns: take max per player (rebuys only go up)
+      Object.keys(dg.buyIns||{}).forEach(function(n) {
+        S.game.buyIns = S.game.buyIns || {};
+        S.game.buyIns[n] = Math.max(S.game.buyIns[n]||0, dg.buyIns[n]||0);
+      });
+      // addons: take max per player per type
+      Object.keys(dg.addons||{}).forEach(function(n) {
+        S.game.addons = S.game.addons || {};
+        S.game.addons[n] = S.game.addons[n] || {full:0, partial:0};
+        S.game.addons[n].full    = Math.max(S.game.addons[n].full||0,    (dg.addons[n]||{}).full||0);
+        S.game.addons[n].partial = Math.max(S.game.addons[n].partial||0, (dg.addons[n]||{}).partial||0);
+      });
+    }
+  } else if (!S.game) {
     S.game = null;
   }
   // Restore timer, adjusting for elapsed time if it was running
