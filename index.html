@@ -990,7 +990,9 @@ function startGame() {
   S.game = {num:S.season.games.length+1, week:week, gameInWeek:gameInWeek, players:selectedPlayers.slice(), bustOrder:[], knockouts:{}, addons:{}, mult:S.mult, buyIn:buyIn, buyIns:buyIns, koBuyIns:koBuyIns};
   stopTimer();
   S.timer.lvlIdx=0; S.timer.secsLeft=S.levels[0].dur*60; S.timer.running=false;
-  refreshGameTab(); updateSeasonStatus(); saveData();
+  setTimerBtn('&#9654; Start','&#9654;');
+  refreshGameTab(); refreshTimerDisp(); refreshBlindsDisp(); renderLevels();
+  updateSeasonStatus(); saveData();
   toast('Game #'+S.game.num+' started!'); pushLiveState(); syncPush(true);
 }
 
