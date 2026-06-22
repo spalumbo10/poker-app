@@ -1068,6 +1068,7 @@ function resetLvl() {
   setTimerBtn('&#9654; Start','&#9654;'); refreshTimerDisp(); saveData();
 }
 var speechUnlocked = false;
+var _seasonMoney = {}, _seasonWinnings = {}, _seasonKoMoney = {};
 function unlockSpeech() {
   if (speechUnlocked || !window.speechSynthesis) return;
   var u = new SpeechSynthesisUtterance('');
@@ -1476,9 +1477,12 @@ function renderSeason() {
   var sel=document.getElementById('s-standings');
   if(sel) {
     // Build cumulative money spent, winnings, and KO money per player across all finalized games
-    var seasonMoney = {};
-    var seasonWinnings = {};
-    var seasonKoMoney = {};
+    _seasonMoney = {};
+    _seasonWinnings = {};
+    _seasonKoMoney = {};
+    var seasonMoney    = _seasonMoney;
+    var seasonWinnings = _seasonWinnings;
+    var seasonKoMoney  = _seasonKoMoney;
     S.season.games.forEach(function(g){
       var bi = g.buyIn || 0;
       var mult = g.mult || 1;
@@ -1831,28 +1835,10 @@ function renderFloorStandings() {
     });
   }
 
-  // Compute season money stats per player from finalized games
-  var seasonMoney = {}, seasonWinnings = {}, seasonKoMoney = {};
-  S.season.games.forEach(function(g) {
-    var bi = g.buyIn || 0;
-    var mult = g.mult || 1;
-    var results = g.results || [];
-    var gKoBuyIns = g.koBuyIns || {};
-    var buyInTotal = results.reduce(function(s,r){ return s + (1+(r.rebuys||0)); }, 0) * bi;
-    var addonTotal = results.reduce(function(s,r){ return s + (r.fullAddons||0)*1.5*bi + (r.partialAddons||0)*bi; }, 0);
-    var net = Math.max(0, buyInTotal + addonTotal - 2*bi);
-    var places = net < 1000
-      ? [{pct:.50},{pct:.30},{pct:.20}]
-      : [{pct:.45},{pct:.25},{pct:.15},{pct:.10},{pct:.05}];
-    var sorted = results.slice().sort(function(a,b){ return b.pos-a.pos; });
-    sorted.forEach(function(r, rank) {
-      var koB = gKoBuyIns[r.name] != null ? gKoBuyIns[r.name] : (r.kosBought != null ? r.kosBought : 1);
-      var spent = (1+(r.rebuys||0))*bi + (r.fullAddons||0)*1.5*bi + (r.partialAddons||0)*bi + koB*KO_COST;
-      seasonMoney[r.name] = (seasonMoney[r.name]||0) + spent;
-      if (rank < places.length && net > 0) seasonWinnings[r.name] = (seasonWinnings[r.name]||0) + Math.floor(net*places[rank].pct);
-      if ((r.kos||0) > 0) seasonKoMoney[r.name] = (seasonKoMoney[r.name]||0) + 10*mult*r.kos;
-    });
-  });
+  // Use pre-computed season money stats from renderSeason
+  var seasonMoney    = _seasonMoney;
+  var seasonWinnings = _seasonWinnings;
+  var seasonKoMoney  = _seasonKoMoney;
 
   // Merge season totals with in-progress game players
   var names = {};
