@@ -706,9 +706,12 @@ function pushLiveState() {
       week:       S.game.week,
       gameInWeek: S.game.gameInWeek,
       mult:       S.game.mult,
+      buyIn:      S.game.buyIn,
       players:    S.game.players,
       bustOrder:  S.game.bustOrder,
-      knockouts:  S.game.knockouts
+      knockouts:  S.game.knockouts,
+      buyIns:     S.game.buyIns,
+      addons:     S.game.addons
     } : null,
     standings: standings.map(function(p){ return { name: p.name, pts: p.pts }; })
   };
