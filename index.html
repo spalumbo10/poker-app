@@ -1322,7 +1322,7 @@ function finalizeGame() {
       S.season.totals[name]+=koPts;
     }
   });
-  S.season.games.push({num:S.game.num,week:S.game.week||1,gameInWeek:S.game.gameInWeek||1,mult:S.game.mult,buyIn:S.game.buyIn||0,results:results});
+  S.season.games.push({num:S.game.num,week:S.game.week||1,gameInWeek:S.game.gameInWeek||1,mult:S.game.mult,buyIn:S.game.buyIn||0,koBuyIns:S.game.koBuyIns||{},results:results});
   S.season.syncedAt = Date.now();
   var gn=S.game.num; S.game=null; stopTimer();
   refreshGameTab(); updateSeasonStatus(); renderSeason(); renderFloorStandings(); saveData();
@@ -1469,6 +1469,7 @@ function renderSeason() {
       var bi = g.buyIn || 0;
       var mult = g.mult || 1;
       var results = g.results || [];
+      var gKoBuyIns = g.koBuyIns || {};
       // Calculate this game's pot
       var buyInTotal = results.reduce(function(s,r){ return s + (1 + (r.rebuys||0)); }, 0) * bi;
       var addonTotal = results.reduce(function(s,r){
@@ -1486,10 +1487,13 @@ function renderSeason() {
       var sorted = results.slice().sort(function(a,b){ return b.pos - a.pos; });
       sorted.forEach(function(r, rank){
         if (!seasonMoney[r.name]) seasonMoney[r.name] = 0;
+        var koB = gKoBuyIns[r.name] != null ? gKoBuyIns[r.name]
+                : r.kosBought        != null ? r.kosBought
+                : 1;
         var spent = (1 + (r.rebuys||0)) * bi
                   + (r.fullAddons||0)    * 1.5 * bi
                   + (r.partialAddons||0) * bi
-                  + (r.kosBought||0)     * KO_COST;
+                  + koB                  * KO_COST;
         seasonMoney[r.name] += spent;
         if (rank < places.length && net > 0) {
           if (!seasonWinnings[r.name]) seasonWinnings[r.name] = 0;
