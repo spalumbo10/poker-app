@@ -567,7 +567,7 @@ function checkPassword() {
   errEl.textContent = 'Checking…';
   fetch(getCfUrl() + '/auth', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({ password: input })
   })
   .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
@@ -716,9 +716,10 @@ function pushLiveState() {
     } : null,
     standings: standings.map(function(p){ return { name: p.name, pts: p.pts }; })
   };
+  payload._key = key;
   fetch(url + '/update', {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+    headers: { 'Content-Type': 'text/plain' },
     body:    JSON.stringify(payload)
   }).then(function(r){
     if (r.ok) cfStatus('✓ Pushed', true);
@@ -743,6 +744,7 @@ function syncPush(silent) {
     ? { lvlIdx: S.timer.lvlIdx, secsLeft: S.timer.secsLeft, running: true, snapAt: Date.now() }
     : { lvlIdx: S.timer.lvlIdx, secsLeft: S.timer.secsLeft, running: false };
   var payload = JSON.stringify({
+    _key: key,
     syncedAt: Date.now(),
     season: S.season,
     players: players,
@@ -753,7 +755,7 @@ function syncPush(silent) {
   });
   fetch(url + '/sync-data', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+    headers: { 'Content-Type': 'text/plain' },
     body: payload
   }).then(function(r) {
     if (!silent) cfStatus(r.ok ? '✓ Synced to cloud' : '✗ Sync error ' + r.status, r.ok);
