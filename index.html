@@ -507,6 +507,7 @@ var S = {
   ui: {startImg: null, pauseImg: null}
 };
 var selectedPlayers = [];
+var _setupSeeded = false;
 var timerTick = null;
 var pendingPhotoId = null;  // player id waiting for photo upload
 
@@ -927,7 +928,7 @@ function refreshGameTab() {
 // ─── Setup panel ─────────────────────────────────────────────────────────────
 function renderSetup() {
   setText('setup-num', S.season.games.length+1);
-  selectedPlayers = S.players.map(function(p){ return p.name; });
+  if (!_setupSeeded) { selectedPlayers = S.players.map(function(p){ return p.name; }); _setupSeeded = true; }
   var bi = document.getElementById('inp-buyin');
   if (bi) bi.value = S.lastBuyIn || 20;
   var wi = document.getElementById('inp-week');
@@ -945,7 +946,7 @@ function refreshWeekLabel() {
 function renderSetupList() {
   var el = document.getElementById('setup-list');
   if (!S.players.length) {
-    el.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:24px 0">No players yet — add one above or in the Players tab</div>';
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:24px 0">No players yet — add one above or in the Setup tab</div>';
     return;
   }
   el.innerHTML = S.players.map(function(p) {
