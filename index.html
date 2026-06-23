@@ -897,7 +897,7 @@ function toast(msg) {
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 function goTab(name) {
   document.querySelectorAll('.tab').forEach(function(t,i){
-    t.classList.toggle('on', ['game','blinds','players','season'][i]===name);
+    t.classList.toggle('on', ['game','blinds','season','players'][i]===name);
   });
   document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('on'); });
   document.getElementById('tab-'+name).classList.add('on');
