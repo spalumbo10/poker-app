@@ -275,7 +275,7 @@ h2{font-size:17px;font-weight:600}
         </div>
         <div class="card">
           <div class="between" style="margin-bottom:14px">
-            <h2>Players in this game</h2>
+            <h2>Players in this game <span id="sel-count" style="font-size:13px;font-weight:400;color:var(--text3)"></span></h2>
             <div class="row"><button class="sm" onclick="selAll()">All</button><button class="sm" onclick="selNone()">None</button></div>
           </div>
           <div id="setup-list"></div>
@@ -300,7 +300,8 @@ h2{font-size:17px;font-weight:600}
           </div>
         </div>
         <div>
-          <div class="card">
+          <div class="card" id="game-pot-card"></div>
+          <div class="card mt12">
             <h2 style="margin-bottom:4px">Still in the game</h2>
             <div style="font-size:13px;color:var(--text3);margin-bottom:16px">Tap a player the moment they bust out — in order</div>
             <div id="bust-active"></div>
@@ -917,7 +918,7 @@ function refreshGameTab() {
     var ghdr = document.getElementById('g-week-lbl');
     if (ghdr) ghdr.textContent = S.game.week ? 'Week '+S.game.week+', Game '+S.game.gameInWeek : '';
     refreshTimerDisp(); refreshBlindsDisp();
-    renderBustActive(); renderBustLog(); renderKoList(); renderBuyInList();
+    renderBustActive(); renderBustLog(); renderKoList(); renderBuyInList(); renderGamePot();
   } else {
     document.getElementById('panel-setup').style.display = '';
     document.getElementById('panel-game').style.display  = 'none';
@@ -943,6 +944,8 @@ function refreshWeekLabel() {
   el.textContent = '→ Game ' + (gamesThisWeek + 1) + ' of week ' + week;
 }
 function renderSetupList() {
+  var cnt = document.getElementById('sel-count');
+  if (cnt) cnt.textContent = selectedPlayers.length ? '(' + selectedPlayers.length + ')' : '';
   var el = document.getElementById('setup-list');
   if (!S.players.length) {
     el.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:24px 0">No players yet — add one above or in the Setup tab</div>';
@@ -1703,7 +1706,9 @@ function calcPot() {
   var mult     = S.game.mult || 1;
   var koTotal  = Object.keys(koBuyIns).reduce(function(s,n){ return s + koBuyIns[n]; }, 0) * KO_COST * mult;
   var koCount  = Object.keys(koBuyIns).reduce(function(s,n){ return s + koBuyIns[n]; }, 0);
-  var gross = buyInTotal + addonTotal;
+  var rawGross = buyInTotal + addonTotal;
+  var hasOverride = S.game.potOverride != null;
+  var gross = hasOverride ? S.game.potOverride : rawGross;
   var house = 2 * buyIn;
   var net   = Math.max(0, gross - house);
   var places;
@@ -1712,7 +1717,7 @@ function calcPot() {
   } else {
     places = [{label:'1st',pct:0.45},{label:'2nd',pct:0.25},{label:'3rd',pct:0.15},{label:'4th',pct:0.10},{label:'5th',pct:0.05}];
   }
-  return {gross:gross, house:house, net:net, buyIn:buyIn, koTotal:koTotal, koCount:koCount, places:places};
+  return {gross:gross, rawGross:rawGross, hasOverride:hasOverride, house:house, net:net, buyIn:buyIn, koTotal:koTotal, koCount:koCount, places:places};
 }
 
 function renderBuyInList() {
@@ -1725,6 +1730,7 @@ function renderBuyInList() {
   var pot    = calcPot();
   if (sum) sum.textContent = pot ? 'Total pot: $' + pot.gross : '';
   var koBuyIns = S.game.koBuyIns || {};
+  renderGamePot();
   el.innerHTML = S.game.players.map(function(name) {
     var biCount  = buyIns[name] || 1;
     var rebuys   = biCount - 1;
@@ -1831,6 +1837,68 @@ function renderFloorPot() {
       '<span style="font-size:22px;font-weight:800;color:#f97316">$'+pot.koTotal+'</span>'+
     '</div>'+
     payoutRows;
+}
+
+function renderGamePot() {
+  var el = document.getElementById('game-pot-card');
+  if (!el || !S.game) return;
+  var pot = calcPot();
+  var playerCount = (S.game.players || []).length;
+  var hdr = '<div class="between" style="margin-bottom:12px">'+
+    '<h2>Pot &amp; Payouts</h2>'+
+    '<span style="font-size:13px;color:var(--text3);font-weight:600">'+playerCount+' player'+(playerCount!==1?'s':'')+'</span>'+
+  '</div>';
+  if (!pot || pot.buyIn === 0) {
+    el.innerHTML = hdr + '<div style="font-size:13px;color:var(--text3)">No buy-in set</div>';
+    return;
+  }
+  var overrideNote = pot.hasOverride
+    ? '<button class="sm" onclick="clearPotOverride()" style="color:var(--orange);font-size:11px">Reset ($'+pot.rawGross+')</button>'
+    : '<span style="font-size:11px;color:var(--text3)">calculated</span>';
+  var potRow =
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'+
+      '<span style="font-size:13px;color:var(--text3);min-width:80px">Total pot</span>'+
+      '<span style="font-size:18px;color:var(--text2)">$</span>'+
+      '<input type="number" id="pot-override-inp" value="'+pot.gross+'" min="0" step="1" '+
+        'style="font-size:18px;font-weight:700;color:var(--accent);max-width:90px;background:var(--bg3);border:1px solid '+(pot.hasOverride?'var(--orange)':'var(--border)')+';border-radius:6px;padding:2px 6px" '+
+        'onchange="setPotOverride(this.value)">'+
+      overrideNote+
+    '</div>';
+  var summary =
+    '<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">'+
+      '<div class="between" style="margin-bottom:4px">'+
+        '<span style="font-size:12px;color:var(--text3)">League cut</span>'+
+        '<span style="font-size:14px;font-weight:600">$'+pot.house+'</span>'+
+      '</div>'+
+      '<div class="between" style="margin-bottom:4px">'+
+        '<span style="font-size:12px;color:var(--text3)">Prize pool</span>'+
+        '<span style="font-size:16px;font-weight:700;color:var(--accent)">$'+pot.net+'</span>'+
+      '</div>'+
+      '<div class="between">'+
+        '<span style="font-size:12px;color:var(--text3)">KO pool ('+pot.koCount+' bounties)</span>'+
+        '<span style="font-size:16px;font-weight:700;color:var(--orange)">$'+pot.koTotal+'</span>'+
+      '</div>'+
+    '</div>';
+  var payouts = pot.places.map(function(p) {
+    var amt = Math.floor(pot.net * p.pct);
+    return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:3px 0">'+
+      '<span style="font-size:14px;font-weight:700;color:var(--text2)">'+p.label+'</span>'+
+      '<span style="font-size:12px;color:var(--text3)">'+Math.round(p.pct*100)+'%</span>'+
+      '<span style="font-size:16px;font-weight:700;color:var(--accent)">$'+amt+'</span>'+
+    '</div>';
+  }).join('');
+  el.innerHTML = hdr + potRow + summary + payouts;
+}
+function setPotOverride(val) {
+  if (!S.game) return;
+  var n = parseFloat(val);
+  S.game.potOverride = (!isNaN(n) && n >= 0) ? n : null;
+  renderGamePot(); renderFloorPot(); saveData(); pushLiveState(); syncPush(true);
+}
+function clearPotOverride() {
+  if (!S.game) return;
+  S.game.potOverride = null;
+  renderGamePot(); renderFloorPot(); saveData(); pushLiveState(); syncPush(true);
 }
 
 function openFloor() {
