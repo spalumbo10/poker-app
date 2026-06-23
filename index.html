@@ -928,7 +928,6 @@ function refreshGameTab() {
 // ─── Setup panel ─────────────────────────────────────────────────────────────
 function renderSetup() {
   setText('setup-num', S.season.games.length+1);
-  if (!_setupSeeded) { selectedPlayers = S.players.map(function(p){ return p.name; }); _setupSeeded = true; }
   var bi = document.getElementById('inp-buyin');
   if (bi) bi.value = S.lastBuyIn || 20;
   var wi = document.getElementById('inp-week');
@@ -1357,12 +1356,15 @@ function finalizeGame() {
   S.season.games.push({num:S.game.num,week:S.game.week||1,gameInWeek:S.game.gameInWeek||1,mult:S.game.mult,buyIn:S.game.buyIn||0,koBuyIns:S.game.koBuyIns||{},results:results});
   S.season.syncedAt = Date.now();
   var gn=S.game.num; S.game=null; stopTimer();
+  selectedPlayers = S.players.map(function(p){ return p.name; });
   refreshGameTab(); updateSeasonStatus(); renderSeason(); renderFloorStandings(); saveData();
   toast('Game #'+gn+' finalized!'); pushLiveState(); syncPush(true);
 }
 function abandonGame() {
   if(!confirm('Abandon this game? All bust data will be lost.')) return;
-  stopTimer(); S.game=null; refreshGameTab(); updateSeasonStatus(); saveData(); syncPush(true);
+  stopTimer(); S.game=null;
+  selectedPlayers = S.players.map(function(p){ return p.name; });
+  refreshGameTab(); updateSeasonStatus(); saveData(); syncPush(true);
 }
 
 // ─── Blind levels ─────────────────────────────────────────────────────────────
