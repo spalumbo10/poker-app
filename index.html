@@ -72,20 +72,20 @@ h2{font-size:17px;font-weight:600}
 .bust-row{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:var(--r);background:var(--bg3);margin-bottom:6px}
 
 /* ═══ FLOOR DISPLAY ════════════════════════════════════════════════════════ */
-#floor{display:none;position:fixed;inset:0;background:#060d1a;z-index:999;flex-direction:column;padding:16px;gap:12px;overflow-y:auto}
+#floor{display:none;position:fixed;inset:0;background:#060d1a;z-index:999;flex-direction:column;padding:16px;gap:12px;overflow:hidden}
 #floor.on{display:flex}
 
 .fc{background:#0c1526;border:1px solid #1e3555;border-radius:14px;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
 .fl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#8ab0d0;margin-bottom:8px}
 
 /* Floor timer */
-.f-timer{font-size:76px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1;color:#eef2ff}
+.f-timer{font-size:clamp(38px,8vh,90px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1;color:#eef2ff}
 .f-timer.warn{color:#f97316}
 .f-timer.urg{color:#ef4444;animation:blink 1s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* Floor responsive */
-#f-grid{display:grid;grid-template-columns:3fr 2fr;gap:12px;flex:1;min-height:0}
+#f-grid{display:grid;grid-template-columns:2fr 3fr;gap:12px;flex:1;min-height:0}
 @media(max-width:640px){
   #floor{padding:10px;gap:8px}
   #f-grid{grid-template-columns:1fr;flex:none;overflow:visible}
@@ -104,7 +104,7 @@ h2{font-size:17px;font-weight:600}
 .f-ctrl-btn.play:hover{background:rgba(79,124,255,.4)}
 
 /* Floor blinds */
-.f-blind{font-size:48px;font-weight:700;color:#4f7cff;line-height:1}
+.f-blind{font-size:clamp(24px,5vh,48px);font-weight:700;color:#4f7cff;line-height:1}
 .f-sep{font-size:26px;color:#7090b0;margin:0 6px}
 .f-ante{font-size:14px;color:#9ab8d4;margin-top:6px}
 .f-next-val{font-size:26px;font-weight:600;color:#9ab8d4}
@@ -176,7 +176,7 @@ h2{font-size:17px;font-weight:600}
   <div id="f-grid">
 
     <!-- LEFT: timer + blinds stacked -->
-    <div style="display:flex;flex-direction:column;gap:12px;overflow:hidden">
+    <div style="display:flex;flex-direction:column;gap:12px;overflow:hidden;min-height:0">
 
       <!-- Current blinds + next level combined (top, auto height) -->
       <div class="fc" style="flex-shrink:0;gap:0;padding:24px 28px">
@@ -189,19 +189,19 @@ h2{font-size:17px;font-weight:600}
       </div>
 
       <!-- Timer + controls (below blinds, auto height, big touch targets) -->
-      <div class="fc" style="flex-shrink:0;gap:6px;padding:20px 28px">
+      <div class="fc" style="flex-shrink:0;gap:6px;padding:16px 28px">
         <div class="fl">Time remaining</div>
-        <div id="f-timer" class="f-timer" style="font-size:90px">--:--</div>
+        <div id="f-timer" class="f-timer">--:--</div>
         <div id="f-lvl-lbl" style="font-size:13px;color:#2a3d58;margin-bottom:6px">—</div>
         <div id="f-ctrl-row" style="display:flex;gap:20px;margin-top:8px;width:100%;justify-content:space-between;align-items:center">
           <button class="f-ctrl-btn" id="f-btn-prev" onclick="prevLvl()" title="Previous level" style="flex:1;padding:14px 0;font-size:22px">&#9664;&#9664;</button>
-          <button class="f-ctrl-btn play" id="f-btn-tp" onclick="toggleTimer()" style="width:117px;height:117px;border-radius:50%;padding:0;overflow:hidden;font-size:42px;flex:none;position:relative">&#9654;</button>
+          <button class="f-ctrl-btn play" id="f-btn-tp" onclick="toggleTimer()" style="width:clamp(70px,9vh,117px);height:clamp(70px,9vh,117px);border-radius:50%;padding:0;overflow:hidden;font-size:clamp(26px,4vh,42px);flex:none;position:relative">&#9654;</button>
           <button class="f-ctrl-btn" id="f-btn-next" onclick="nextLvl()" title="Next level" style="flex:1;padding:14px 0;font-size:22px">&#9654;&#9654;</button>
         </div>
       </div>
 
       <!-- Pot & payouts -->
-      <div class="fc" style="flex-shrink:0;padding:18px 28px;align-items:stretch;text-align:left">
+      <div class="fc" style="flex:1;min-height:0;overflow-y:auto;padding:14px 28px;align-items:stretch;text-align:left">
         <div class="fl" style="align-self:center">Pot &amp; Payouts</div>
         <div id="f-pot-body" style="width:100%">
           <div style="color:#3a5070;font-size:14px;text-align:center">No active game</div>
@@ -336,6 +336,7 @@ h2{font-size:17px;font-weight:600}
           <button onclick="addLevel()">+ Add level</button>
           <button onclick="addBreak()">+ Add break</button>
           <button onclick="resetLevels()">Reset defaults</button>
+          <button class="primary sm" onclick="syncPush()">&#8679; Push to cloud</button>
         </div>
       </div>
       <div class="lvl-hdr"><span>#</span><span>Small</span><span>Big</span><span>Ante</span><span>Minutes</span><span></span></div>
@@ -765,10 +766,20 @@ function syncPush(silent) {
   }).catch(function() { if (!silent) cfStatus('✗ Sync failed', false); });
 }
 
+function _hasFocusedInput(containerId) {
+  var ae = document.activeElement;
+  if (!ae || ae === document.body) return false;
+  var tag = ae.tagName;
+  if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return false;
+  var el = document.getElementById(containerId);
+  return !!(el && el.contains(ae));
+}
+
 function applyCloudData(data) {
   if (!data) return;
   S.season = data.season || S.season;
-  if (data.levels && data.levels.length) S.levels = data.levels;
+  var blindsActive = _hasFocusedInput('tab-blinds');
+  if (!blindsActive && data.levels && data.levels.length) S.levels = data.levels;
   if (data.mult) S.mult = data.mult;
   // Detect game change so we know whether to sync the timer
   var prevGameNum = S.game ? S.game.num : null;
@@ -828,8 +839,10 @@ function applyCloudData(data) {
   var _savedWrite = _lastLocalWrite;
   localStorage.setItem('pkr4', JSON.stringify(S));
   _lastLocalWrite = _savedWrite;
-  refreshGameTab(); renderSeason(); renderFloorStandings(); renderRoster(); renderLevels();
-  updateSeasonStatus(); refreshTimerDisp(); refreshBlindsDisp(); refreshMultBtns(); renderFloorPot();
+  if (!_hasFocusedInput('panel-setup')) refreshGameTab(); else { renderBustActive(); renderBustLog(); renderKoList(); renderBuyInList(); renderGamePot(); }
+  renderSeason(); renderFloorStandings(); renderRoster();
+  if (!blindsActive) { renderLevels(); refreshBlindsDisp(); }
+  updateSeasonStatus(); refreshTimerDisp(); refreshMultBtns(); renderFloorPot();
 }
 
 function syncPull() {
@@ -930,9 +943,9 @@ function refreshGameTab() {
 function renderSetup() {
   setText('setup-num', S.season.games.length+1);
   var bi = document.getElementById('inp-buyin');
-  if (bi) bi.value = S.lastBuyIn || 20;
+  if (bi && document.activeElement !== bi) bi.value = S.lastBuyIn || 20;
   var wi = document.getElementById('inp-week');
-  if (wi) wi.value = S.lastWeek || 1;
+  if (wi && document.activeElement !== wi) wi.value = S.lastWeek || 1;
   renderSetupList(); refreshMultBtns(); refreshWeekLabel();
 }
 
@@ -1393,28 +1406,28 @@ function renderLevels() {
     '</div>';
   }).join('');
 }
-function updLvl(i,key,val){ S.levels[i][key]=parseInt(val)||0; refreshBlindsDisp(); saveData(); }
+function updLvl(i,key,val){ S.levels[i][key]=parseInt(val)||0; refreshBlindsDisp(); saveData(); syncPush(true); }
 function addLevel() {
   var last=null;
   for(var j=S.levels.length-1;j>=0;j--){if(S.levels[j].type==='blind'){last=S.levels[j];break;}}
   if(!last) last={sb:25,bb:50,ante:0,dur:8};
   S.levels.push({type:'blind',sb:last.sb*2,bb:last.bb*2,ante:0,dur:last.dur});
-  renderLevels(); saveData();
+  renderLevels(); saveData(); syncPush(true);
   setTimeout(function(){var r=document.querySelectorAll('.lvl-row');if(r.length)r[r.length-1].scrollIntoView({behavior:'smooth',block:'nearest'});},50);
 }
 function addBreak() {
-  S.levels.push({type:'break',dur:15}); renderLevels(); saveData();
+  S.levels.push({type:'break',dur:15}); renderLevels(); saveData(); syncPush(true);
   setTimeout(function(){var r=document.querySelectorAll('.lvl-row');if(r.length)r[r.length-1].scrollIntoView({behavior:'smooth',block:'nearest'});},50);
 }
 function removeLevel(i) {
   if(S.levels.length<=1) return;
   S.levels.splice(i,1);
   if(S.timer.lvlIdx>=S.levels.length) S.timer.lvlIdx=S.levels.length-1;
-  renderLevels(); saveData();
+  renderLevels(); saveData(); syncPush(true);
 }
 function resetLevels() {
   if(!confirm('Reset to default blind structure?')) return;
-  S.levels=cloneDefaults(); S.timer.lvlIdx=0; renderLevels(); refreshBlindsDisp(); saveData();
+  S.levels=cloneDefaults(); S.timer.lvlIdx=0; renderLevels(); refreshBlindsDisp(); saveData(); syncPush(true);
 }
 
 // ─── Players / photos ─────────────────────────────────────────────────────────
@@ -1842,6 +1855,7 @@ function renderFloorPot() {
 function renderGamePot() {
   var el = document.getElementById('game-pot-card');
   if (!el || !S.game) return;
+  if (_hasFocusedInput('game-pot-card')) return;
   var pot = calcPot();
   var playerCount = (S.game.players || []).length;
   var hdr = '<div class="between" style="margin-bottom:12px">'+
