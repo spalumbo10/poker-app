@@ -554,7 +554,7 @@ function computeStandings(season) {
 function renderHeroStats() {
   var games   = seasonData && seasonData.season ? (seasonData.season.games || []).length : 0;
   var nPlayers= standings.length;
-  var leader  = standings.length ? standings[0].name.split(' ')[0] : '—';
+  var leader  = standings.length ? standings[0].name : '—';
   document.getElementById('stat-games').textContent   = games   || '—';
   document.getElementById('stat-players').textContent = nPlayers|| '—';
   document.getElementById('stat-leader').textContent  = leader;
