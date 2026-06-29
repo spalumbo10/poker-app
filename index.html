@@ -140,6 +140,21 @@ footer{border-top:1px solid var(--border);padding:28px 24px;text-align:center;fo
 footer a{color:var(--text2);text-decoration:none}
 footer a:hover{color:var(--text)}
 
+/* ── Auth modal ──────────────────────────────────────── */
+#auth-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px}
+#auth-box{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:28px 24px;width:100%;max-width:360px}
+#auth-box h3{font-size:17px;font-weight:700;margin-bottom:6px}
+#auth-box p{font-size:13px;color:var(--text2);margin-bottom:16px}
+#auth-pw{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:10px 14px;color:var(--text);font-size:15px;margin-bottom:10px}
+#auth-pw:focus{outline:none;border-color:var(--green)}
+#auth-err{font-size:12px;color:var(--red);margin-bottom:10px;min-height:16px}
+.auth-btns{display:flex;gap:8px}
+.auth-btns .btn{flex:1;text-align:center}
+/* Lock overlay for RSVP */
+.rsvp-lock{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;gap:10px;text-align:center}
+.rsvp-lock-icon{font-size:28px}
+.rsvp-lock p{font-size:13px;color:var(--text3);margin:0}
+
 /* ── Utils ───────────────────────────────────────────── */
 .empty{padding:28px;text-align:center;color:var(--text3);font-size:13px}
 .loading{display:flex;align-items:center;justify-content:center;padding:32px;gap:10px;color:var(--text3);font-size:13px}
@@ -151,14 +166,39 @@ footer a:hover{color:var(--text)}
 
 /* ── Mobile ──────────────────────────────────────────── */
 @media(max-width:760px){
-  .page{padding:24px 14px 60px}
-  .hero{padding:36px 18px}.hero-title{font-size:28px}
-  .hero-stats{gap:8px}.hero-stat{padding:10px 16px}
+  .page{padding:20px 12px 60px}
+  .section{margin-bottom:44px}
+  .hero{padding:32px 14px;margin-bottom:36px}
+  .hero-title{font-size:26px}
+  .hero-sub{font-size:14px}
+  .hero-stat{padding:10px 14px}
+  .hero-stat-val{font-size:22px}
   .game-grid{grid-template-columns:1fr}
   .g2,.g3{grid-template-columns:1fr}
-  .standings-table th:nth-child(n+5),.standings-table td:nth-child(n+5){display:none}
-  nav .nav-inner{overflow-x:auto;gap:2px}
-  a.nav-link{font-size:12px;padding:5px 9px}
+  /* stack RSVP buttons full-width */
+  .rsvp-btns{flex-direction:column}
+  .rsvp-btns .btn{width:100%;text-align:center;padding:12px}
+  /* hide money cols in standings, keep #/Player/Pts/Wins */
+  .standings-table th:nth-child(4),
+  .standings-table td:nth-child(4),
+  .standings-table th:nth-child(n+6),
+  .standings-table td:nth-child(n+6){display:none}
+  .standings-table th,.standings-table td{padding:10px 8px}
+  .st-name{font-size:13px}
+  .st-pts{font-size:15px}
+  /* sort buttons wrap naturally */
+  .standings-bar{gap:6px}
+  .sort-btn,.reveal-all-btn{padding:5px 10px;font-size:11px}
+  .reveal-all-btn{margin-left:0}
+  /* blind table compact */
+  .blind-table th,.blind-table td{padding:9px 10px;font-size:13px}
+  /* nav */
+  nav .nav-inner{padding:0 12px;gap:0}
+  a.nav-link{font-size:11px;padding:5px 7px}
+  .nav-brand{font-size:14px}
+  .card{padding:16px}
+  .card-sm{padding:12px}
+  #toast{bottom:12px;right:12px;left:12px;max-width:none;text-align:center}
 }
 </style>
 </head>
@@ -220,6 +260,13 @@ footer a:hover{color:var(--text)}
             <div class="rsvp-btns">
               <button class="btn btn-green" onclick="submitRsvp('in')">✓ I'm In</button>
               <button class="btn btn-red" onclick="submitRsvp('out')">✗ Can't Make It</button>
+            </div>
+            <div id="rsvp-guest-toggle" style="display:none;margin-top:10px;text-align:center">
+              <a href="#" onclick="toggleGuestField();return false;" id="rsvp-guest-link" style="font-size:13px;color:var(--green);text-decoration:none">+ Bringing a guest?</a>
+            </div>
+            <div id="rsvp-guest-wrap" style="display:none;margin-top:10px">
+              <div class="rsvp-label" style="margin-top:6px">Guest name <span style="font-weight:400;opacity:.7">(optional)</span></div>
+              <input type="text" id="rsvp-guest-name" class="rsvp-name-input" placeholder="Leave blank for 'Guest of [your name]'">
             </div>
           </div>
         </div>
@@ -301,6 +348,20 @@ footer a:hover{color:var(--text)}
 
 <div id="toast"></div>
 
+<!-- ── Viewer auth modal ───────────────────────────── -->
+<div id="auth-overlay" style="display:none" onclick="if(event.target===this)closeAuthModal()">
+  <div id="auth-box">
+    <h3>🔒 Members Only</h3>
+    <p>Enter the viewer password to see RSVP names and earnings.</p>
+    <input type="password" id="auth-pw" placeholder="Password" onkeydown="if(event.key==='Enter')submitAuthModal()">
+    <div id="auth-err"></div>
+    <div class="auth-btns">
+      <button class="btn btn-green" onclick="submitAuthModal()">Unlock</button>
+      <button class="btn" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border)" onclick="closeAuthModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════════════════
 //  CONFIG — edit these to match your setup
@@ -334,8 +395,10 @@ var liveState   = null;
 var players     = [];
 var standings   = [];
 var sortKey     = 'pts';
-var earningsVisible = {}; // name → bool
+var earningsVisible = {};
 var allRevealed = false;
+var viewerUnlocked = sessionStorage.getItem('pkr-viewer') === '1';
+var _authCallback  = null;
 
 // ═══════════════════════════════════════════════════════════
 //  Boot
@@ -394,6 +457,47 @@ function fetchLive() {
   return fetch(CF_URL + '/state', { cache: 'no-store' })
     .then(function(r){ return r.json(); })
     .then(function(d){ liveState = d; }).catch(function(){});
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Auth modal
+// ═══════════════════════════════════════════════════════════
+function requireViewerAuth(cb) {
+  if (viewerUnlocked) { cb(); return; }
+  _authCallback = cb;
+  document.getElementById('auth-overlay').style.display = '';
+  document.getElementById('auth-pw').value = '';
+  document.getElementById('auth-err').textContent = '';
+  setTimeout(function(){ document.getElementById('auth-pw').focus(); }, 50);
+}
+function closeAuthModal() {
+  document.getElementById('auth-overlay').style.display = 'none';
+  _authCallback = null;
+}
+function submitAuthModal() {
+  var pw = document.getElementById('auth-pw').value;
+  if (!pw) return;
+  document.getElementById('auth-err').textContent = '';
+  fetch(CF_URL + '/auth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ password: pw })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.role === 'admin' || d.role === 'viewer') {
+      viewerUnlocked = true;
+      sessionStorage.setItem('pkr-viewer', '1');
+      closeAuthModal();
+      renderRsvpList();
+      renderStandings();
+      if (_authCallback) { _authCallback(); _authCallback = null; }
+    } else {
+      document.getElementById('auth-err').textContent = 'Incorrect password.';
+      document.getElementById('auth-pw').select();
+    }
+  })
+  .catch(function(){ document.getElementById('auth-err').textContent = 'Connection error — try again.'; });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -505,6 +609,21 @@ function onRsvpSelectChange() {
   var isOther = sel.value === '__other__';
   inp.style.display = isOther ? '' : 'none';
   if (isOther) inp.focus();
+  // show/hide guest toggle based on whether a name is selected
+  var hasName = sel.value !== '';
+  document.getElementById('rsvp-guest-toggle').style.display = hasName ? '' : 'none';
+  // collapse guest section on name change
+  document.getElementById('rsvp-guest-wrap').style.display = 'none';
+  document.getElementById('rsvp-guest-link').textContent = '+ Bringing a guest?';
+  document.getElementById('rsvp-guest-name').value = '';
+}
+function toggleGuestField() {
+  var wrap = document.getElementById('rsvp-guest-wrap');
+  var link = document.getElementById('rsvp-guest-link');
+  var open = wrap.style.display !== 'none';
+  wrap.style.display = open ? 'none' : '';
+  link.textContent = open ? '+ Bringing a guest?' : '− Cancel guest';
+  if (!open) document.getElementById('rsvp-guest-name').focus();
 }
 
 function submitRsvp(status) {
@@ -514,6 +633,20 @@ function submitRsvp(status) {
     : sel.value.trim();
   if (!name || sel.value === '') { toast('Please select your name'); return; }
 
+  var guestWrapOpen = document.getElementById('rsvp-guest-wrap').style.display !== 'none';
+  var guestNameRaw = document.getElementById('rsvp-guest-name').value.trim();
+  var guestName = guestWrapOpen ? (guestNameRaw || 'Guest of ' + name) : null;
+
+  function resetForm() {
+    document.getElementById('rsvp-select').value = '';
+    document.getElementById('rsvp-other').value = '';
+    document.getElementById('rsvp-other').style.display = 'none';
+    document.getElementById('rsvp-guest-toggle').style.display = 'none';
+    document.getElementById('rsvp-guest-wrap').style.display = 'none';
+    document.getElementById('rsvp-guest-link').textContent = '+ Bringing a guest?';
+    document.getElementById('rsvp-guest-name').value = '';
+  }
+
   fetch(CF_URL + '/rsvp', {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
@@ -522,11 +655,21 @@ function submitRsvp(status) {
   .then(function(r){ return r.json(); })
   .then(function(d){
     rsvpData = d;
+    if (guestName && status === 'in') {
+      return fetch(CF_URL + '/rsvp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ name: guestName, status: 'in' })
+      }).then(function(r){ return r.json(); }).then(function(d2){ rsvpData = d2; });
+    }
+  })
+  .then(function(){
     renderRsvpList();
-    document.getElementById('rsvp-select').value = '';
-    document.getElementById('rsvp-other').value = '';
-    document.getElementById('rsvp-other').style.display = 'none';
-    toast(status === 'in' ? '✓ You\'re in!' : 'Got it — see you next time!');
+    resetForm();
+    var msg = status === 'in'
+      ? (guestName ? '✓ You\'re in! Guest added: ' + guestName : '✓ You\'re in!')
+      : 'Got it — see you next time!';
+    toast(msg);
   })
   .catch(function(){ toast('Error — please try again'); });
 }
@@ -539,6 +682,18 @@ function renderRsvpList() {
 
   if (!res.length) {
     el.innerHTML = '<div class="empty">No RSVPs yet — be the first!</div>';
+    return;
+  }
+
+  if (!viewerUnlocked) {
+    el.innerHTML =
+      '<div class="rsvp-col-title rsvp-in-title">In <span class="rsvp-pill rsvp-pill-in">'+inList.length+'</span></div>' +
+      (outList.length ? '<div class="rsvp-col-title rsvp-out-title" style="margin-top:4px">Out <span class="rsvp-pill rsvp-pill-out">'+outList.length+'</span></div>' : '') +
+      '<div class="rsvp-lock">' +
+        '<div class="rsvp-lock-icon">🔒</div>' +
+        '<p>Names are private</p>' +
+        '<button class="btn btn-green btn-sm" onclick="requireViewerAuth(function(){})">Unlock to view</button>' +
+      '</div>';
     return;
   }
 
@@ -568,6 +723,7 @@ function setSort(key, btn) {
 }
 
 function toggleRevealAll() {
+  if (!viewerUnlocked && !allRevealed) { requireViewerAuth(function(){ allRevealed = true; document.getElementById('reveal-all-btn').textContent = '🙈 Hide Earnings'; renderStandings(); }); return; }
   allRevealed = !allRevealed;
   document.getElementById('reveal-all-btn').textContent = allRevealed ? '🙈 Hide Earnings' : '👁 Reveal Earnings';
   renderStandings();
@@ -610,6 +766,7 @@ function renderStandings() {
 }
 
 function toggleEarn(name) {
+  if (!viewerUnlocked && !earningsVisible[name]) { requireViewerAuth(function(){ earningsVisible[name] = true; renderStandings(); }); return; }
   earningsVisible[name] = !earningsVisible[name];
   renderStandings();
 }
