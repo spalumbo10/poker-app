@@ -181,7 +181,10 @@ h2{font-size:17px;font-weight:600}
       <!-- Current blinds + next level combined (top, auto height) -->
       <div class="fc" style="flex-shrink:0;gap:0;padding:24px 28px">
         <div class="fl">Current blinds</div>
-        <div id="f-blinds-body" style="width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center"></div>
+        <div style="width:100%;display:flex;align-items:center;justify-content:center;gap:24px">
+          <img id="f-logo" src="" alt="" style="max-height:90px;max-width:130px;object-fit:contain;border-radius:10px;display:none;flex-shrink:0">
+          <div id="f-blinds-body" style="display:flex;flex-direction:column;align-items:center;justify-content:center"></div>
+        </div>
         <div style="width:100%;border-top:1px solid #0f1e38;margin-top:14px;padding-top:12px;display:flex;align-items:center;gap:10px;justify-content:center">
           <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#8ab0d0">Next</span>
           <div id="f-next-body" style="display:flex;align-items:center;gap:8px"></div>
@@ -2001,6 +2004,12 @@ function clearPotOverride() {
 
 function openFloor() {
   document.getElementById('floor').classList.add('on');
+  var flogo = document.getElementById('f-logo');
+  if (flogo && !flogo.src.includes('logo.jpg')) {
+    flogo.src = (S.cfg && S.cfg.ghPhotosUrl || APP_DEFAULTS.ghPhotosUrl) + '/logo.jpg';
+    flogo.onload  = function(){ flogo.style.display = ''; };
+    flogo.onerror = function(){ flogo.style.display = 'none'; };
+  }
   refreshTimerDisp(); refreshBlindsDisp(); renderFloorStandings(); refreshFloorPlayBtn(); renderFloorPot();
   var isViewer = sessionStorage.getItem('pkr4-role') === 'viewer';
   var row = document.getElementById('f-ctrl-row');
