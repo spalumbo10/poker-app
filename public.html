@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Poker Night</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080d18;--bg2:#0f1829;--bg3:#162035;--bg4:#1d2d47;
+  --text:#e8eaf0;--text2:#9baac4;--text3:#5a6a8a;
+  --green:#22c55e;--green2:#16a34a;--blue:#4f7cff;
+  --gold:#f5c842;--red:#ef4444;--orange:#f97316;
+  --border:#1e3050;--border2:#2a4070;--r:10px;--r2:16px;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+
+/* ── Nav ─────────────────────────────────────────────── */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,13,24,.95);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1120px;margin:0 auto;display:flex;align-items:center;gap:4px;height:54px;padding:0 24px}
+.nav-brand{font-size:16px;font-weight:700;margin-right:auto;display:flex;align-items:center;gap:8px;color:var(--text);text-decoration:none;white-space:nowrap}
+.nav-suit{color:var(--green);font-size:20px}
+a.nav-link{padding:6px 12px;font-size:13px;color:var(--text2);border-radius:6px;text-decoration:none;transition:all .15s;white-space:nowrap}
+a.nav-link:hover{color:var(--text);background:var(--bg3)}
+
+/* ── Page ────────────────────────────────────────────── */
+.page{max-width:1120px;margin:0 auto;padding:40px 24px 80px}
+.section{margin-bottom:64px;scroll-margin-top:70px}
+.sec-hdr{margin-bottom:24px}
+.sec-title{font-size:22px;font-weight:700;display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.sec-sub{font-size:13px;color:var(--text3)}
+
+/* ── Cards ───────────────────────────────────────────── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:24px}
+.card-sm{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px}
+.inset{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+
+/* ── Hero ────────────────────────────────────────────── */
+.hero{background:linear-gradient(135deg,#0d2b1a 0%,#080d18 45%,#0f1829 100%);border:1px solid var(--border);border-radius:var(--r2);padding:56px 40px;text-align:center;margin-bottom:56px;position:relative;overflow:hidden}
+.hero::before{content:'♠  ♥  ♣  ♦';position:absolute;font-size:200px;opacity:.025;top:50%;left:50%;transform:translate(-50%,-50%);white-space:nowrap;pointer-events:none;letter-spacing:.5em}
+.hero-icon{font-size:52px;margin-bottom:14px;line-height:1}
+.hero-title{font-size:44px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px;line-height:1.1}
+.hero-title em{color:var(--green);font-style:normal}
+.hero-sub{font-size:16px;color:var(--text2);margin-bottom:32px}
+.hero-stats{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.hero-stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:14px 28px;text-align:center}
+.hero-stat-val{font-size:28px;font-weight:800;color:var(--text);line-height:1}
+.hero-stat-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-top:4px}
+
+/* ── Next Game ───────────────────────────────────────── */
+.game-grid{display:grid;grid-template-columns:3fr 2fr;gap:16px;align-items:start}
+.info-rows{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.info-row{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg3);border-radius:var(--r)}
+.info-icon{font-size:18px;width:28px;text-align:center;flex-shrink:0}
+.info-content{flex:1}
+.info-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3)}
+.info-val{font-size:15px;font-weight:600;color:var(--text);margin-top:1px}
+.no-game-notice{text-align:center;padding:32px;color:var(--text3);font-size:14px}
+.no-game-notice div{font-size:32px;margin-bottom:8px}
+
+/* ── RSVP Form ───────────────────────────────────────── */
+.rsvp-form-wrap{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.rsvp-label{font-size:13px;font-weight:600;color:var(--text2)}
+.rsvp-select-row{display:flex;gap:8px}
+.rsvp-name-input{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:10px 14px;color:var(--text);font-size:14px;min-width:0}
+.rsvp-name-input:focus{outline:none;border-color:var(--green)}
+.rsvp-btns{display:flex;gap:8px}
+.btn{cursor:pointer;border-radius:var(--r);padding:10px 20px;font-size:14px;font-weight:600;transition:all .15s;border:1px solid transparent;white-space:nowrap}
+.btn-green{background:var(--green);color:#fff}
+.btn-green:hover{background:var(--green2)}
+.btn-red{background:transparent;color:var(--red);border-color:var(--red)}
+.btn-red:hover{background:rgba(239,68,68,.1)}
+.btn-sm{padding:6px 14px;font-size:12px}
+
+/* ── RSVP List ───────────────────────────────────────── */
+.rsvp-lists-wrap{display:flex;flex-direction:column;gap:8px}
+.rsvp-col-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.rsvp-in-title{color:var(--green)}
+.rsvp-out-title{color:var(--text3)}
+.rsvp-pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700}
+.rsvp-pill-in{background:rgba(34,197,94,.15);color:var(--green)}
+.rsvp-pill-out{background:var(--bg3);color:var(--text3)}
+.rsvp-name-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;margin-bottom:5px;font-size:14px;font-weight:500;border-left:3px solid transparent}
+.rsvp-name-row.in{background:rgba(34,197,94,.07);border-color:var(--green)}
+.rsvp-name-row.out{background:var(--bg3);border-color:var(--border);opacity:.6}
+.mini-av{width:26px;height:26px;border-radius:50%;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--text2);flex-shrink:0;overflow:hidden}
+.mini-av img{width:100%;height:100%;object-fit:cover}
+
+/* ── Standings ───────────────────────────────────────── */
+.standings-wrap{overflow-x:auto}
+.standings-table{width:100%;border-collapse:collapse;min-width:500px}
+.standings-table th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+.standings-table th.r{text-align:right}
+.standings-table td{padding:12px 14px;border-bottom:1px solid rgba(30,48,80,.5);vertical-align:middle}
+.standings-table tr:last-child td{border-bottom:none}
+.standings-table tbody tr:hover td{background:rgba(79,124,255,.03)}
+.rank-cell{font-size:20px;font-weight:800;width:44px;text-align:center;color:var(--text3)}
+.rank-cell.r1{color:var(--gold)}.rank-cell.r2{color:#b8cce0}.rank-cell.r3{color:#d4935a}
+.player-cell{display:flex;align-items:center;gap:10px;min-width:140px}
+.st-av{width:36px;height:36px;border-radius:50%;background:var(--bg4);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--text2);flex-shrink:0;overflow:hidden}
+.st-av img{width:100%;height:100%;object-fit:cover}
+.st-name{font-size:15px;font-weight:600;color:var(--text)}
+.st-pts{font-size:18px;font-weight:800;color:var(--blue);text-align:right}
+.st-num{text-align:right;font-size:14px;color:var(--text2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.earn-hidden{color:var(--text3);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:flex-end;gap:4px;white-space:nowrap}
+.earn-hidden:hover{color:var(--blue)}
+.earn-val{font-size:13px;font-variant-numeric:tabular-nums;cursor:pointer;text-align:right;white-space:nowrap}
+.earn-pos{color:var(--green)}.earn-neg{color:var(--red)}.earn-zero{color:var(--text3)}
+.standings-bar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.sort-btn{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--text2);cursor:pointer;transition:all .15s}
+.sort-btn.on{background:rgba(79,124,255,.15);border-color:var(--blue);color:var(--blue)}
+.sort-btn:hover:not(.on){color:var(--text);background:var(--bg4)}
+.reveal-all-btn{margin-left:auto;background:transparent;border:1px solid var(--border2);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--text3);cursor:pointer;transition:all .15s}
+.reveal-all-btn:hover{color:var(--text);border-color:var(--text2)}
+
+/* ── Blind Structure ─────────────────────────────────── */
+.blind-table{width:100%;border-collapse:collapse}
+.blind-table th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);padding:9px 16px;text-align:right;border-bottom:1px solid var(--border)}
+.blind-table th:first-child,.blind-table th:last-child{text-align:center}
+.blind-table td{padding:11px 16px;text-align:right;font-size:14px;border-bottom:1px solid rgba(30,48,80,.4);font-variant-numeric:tabular-nums}
+.blind-table td:first-child,.blind-table td:last-child{text-align:center}
+.blind-table tr:last-child td{border-bottom:none}
+.blind-table tr.break-row{background:rgba(249,115,22,.05)}
+.blind-table tr.break-row td{color:var(--orange);font-weight:700}
+.blind-table tr.cur-row td{background:rgba(79,124,255,.1);font-weight:700;color:var(--blue)}
+.lvl-no{color:var(--text3);font-size:12px}
+.cur-badge{display:inline-block;background:var(--blue);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:6px}
+
+/* ── Rules ───────────────────────────────────────────── */
+.rules-list{list-style:none}
+.rules-list li{display:flex;gap:16px;padding:14px 0;border-bottom:1px solid rgba(30,48,80,.5);font-size:14px;color:var(--text2);line-height:1.65}
+.rules-list li:last-child{border-bottom:none}
+.rule-n{font-size:11px;font-weight:700;color:var(--blue);background:rgba(79,124,255,.12);border-radius:50%;min-width:26px;height:26px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+
+/* ── Footer ──────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:28px 24px;text-align:center;font-size:12px;color:var(--text3)}
+footer a{color:var(--text2);text-decoration:none}
+footer a:hover{color:var(--text)}
+
+/* ── Utils ───────────────────────────────────────────── */
+.empty{padding:28px;text-align:center;color:var(--text3);font-size:13px}
+.loading{display:flex;align-items:center;justify-content:center;padding:32px;gap:10px;color:var(--text3);font-size:13px}
+.spin{width:18px;height:18px;border:2px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:sp .65s linear infinite;flex-shrink:0}
+@keyframes sp{to{transform:rotate(360deg)}}
+#toast{position:fixed;bottom:24px;right:24px;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r);padding:12px 18px;font-size:13px;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;z-index:9999;max-width:280px}
+#toast.on{transform:none;opacity:1}
+.gap4{gap:4px}.gap8{gap:8px}.flex{display:flex}.items-center{align-items:center}.between{display:flex;align-items:center;justify-content:space-between}
+
+/* ── Mobile ──────────────────────────────────────────── */
+@media(max-width:760px){
+  .page{padding:24px 14px 60px}
+  .hero{padding:36px 18px}.hero-title{font-size:28px}
+  .hero-stats{gap:8px}.hero-stat{padding:10px 16px}
+  .game-grid{grid-template-columns:1fr}
+  .g2,.g3{grid-template-columns:1fr}
+  .standings-table th:nth-child(n+5),.standings-table td:nth-child(n+5){display:none}
+  nav .nav-inner{overflow-x:auto;gap:2px}
+  a.nav-link{font-size:12px;padding:5px 9px}
+}
+</style>
+</head>
+<body>
+
+<!-- ── Nav ─────────────────────────────────────────── -->
+<nav>
+  <div class="nav-inner">
+    <a class="nav-brand" href="#">
+      <span class="nav-suit">♠</span>
+      <span id="nav-club-name">Poker Night</span>
+    </a>
+    <a class="nav-link" href="#rsvp">RSVP</a>
+    <a class="nav-link" href="#standings">Standings</a>
+    <a class="nav-link" href="#structure">Structure</a>
+    <a class="nav-link" href="#rules">Rules</a>
+  </div>
+</nav>
+
+<main class="page">
+
+  <!-- ── Hero ──────────────────────────────────────── -->
+  <div class="hero">
+    <div class="hero-icon">♠</div>
+    <div class="hero-title"><em id="hero-club-name">Poker Night</em></div>
+    <div class="hero-sub" id="hero-tagline">Weekly Texas Hold'em Tournament</div>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="hero-stat-val" id="stat-games">—</div><div class="hero-stat-lbl">Games Played</div></div>
+      <div class="hero-stat"><div class="hero-stat-val" id="stat-players">—</div><div class="hero-stat-lbl">Players</div></div>
+      <div class="hero-stat"><div class="hero-stat-val" id="stat-leader">—</div><div class="hero-stat-lbl">Season Leader</div></div>
+    </div>
+  </div>
+
+  <!-- ── Next Game / RSVP ──────────────────────────── -->
+  <div class="section" id="rsvp">
+    <div class="sec-hdr">
+      <div class="sec-title">🗓 Next Game</div>
+      <div class="sec-sub">Let us know if you're in — RSVP updates are live</div>
+    </div>
+    <div class="game-grid">
+
+      <!-- Left: info + form -->
+      <div>
+        <div class="card" style="margin-bottom:16px">
+          <div id="next-game-info"><div class="loading"><div class="spin"></div> Loading game info…</div></div>
+        </div>
+        <div class="card" id="rsvp-form-card">
+          <div style="font-size:15px;font-weight:600;margin-bottom:14px">Add your RSVP</div>
+          <div class="rsvp-form-wrap">
+            <div class="rsvp-label">Your name</div>
+            <div class="rsvp-select-row">
+              <input type="text" id="rsvp-name" class="rsvp-name-input" placeholder="Select or type your name" list="player-list" autocomplete="off">
+              <datalist id="player-list"></datalist>
+            </div>
+            <div class="rsvp-btns">
+              <button class="btn btn-green" onclick="submitRsvp('in')">✓ I'm In</button>
+              <button class="btn btn-red" onclick="submitRsvp('out')">✗ Can't Make It</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: live RSVP list -->
+      <div class="card">
+        <div id="rsvp-list-wrap"><div class="loading"><div class="spin"></div> Loading RSVPs…</div></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Season Standings ───────────────────────────── -->
+  <div class="section" id="standings">
+    <div class="sec-hdr">
+      <div class="sec-title">🏆 Season Standings</div>
+      <div class="sec-sub">Points accumulate each game — win bonus, KO bonus, and place bonus included</div>
+    </div>
+    <div class="card">
+      <div class="standings-bar">
+        <button class="sort-btn on" onclick="setSort('pts',this)">Points</button>
+        <button class="sort-btn" onclick="setSort('wins',this)">Wins</button>
+        <button class="sort-btn" onclick="setSort('games',this)">Games</button>
+        <button class="sort-btn" onclick="setSort('net',this)">Net $</button>
+        <button class="reveal-all-btn" id="reveal-all-btn" onclick="toggleRevealAll()">👁 Reveal Earnings</button>
+      </div>
+      <div class="standings-wrap">
+        <table class="standings-table">
+          <thead>
+            <tr>
+              <th style="width:44px">#</th>
+              <th>Player</th>
+              <th class="r">Points</th>
+              <th class="r">Games</th>
+              <th class="r">Wins</th>
+              <th class="r">$ In</th>
+              <th class="r">$ Won</th>
+              <th class="r">Net</th>
+            </tr>
+          </thead>
+          <tbody id="standings-body">
+            <tr><td colspan="8"><div class="loading"><div class="spin"></div> Loading standings…</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tournament Structure ──────────────────────── -->
+  <div class="section" id="structure">
+    <div class="sec-hdr">
+      <div class="sec-title">📋 Tournament Structure</div>
+      <div class="sec-sub">Blind levels and timing — structure may vary for special events</div>
+    </div>
+    <div class="card">
+      <div id="structure-wrap"><div class="loading"><div class="spin"></div> Loading structure…</div></div>
+    </div>
+  </div>
+
+  <!-- ── Rules ─────────────────────────────────────── -->
+  <div class="section" id="rules">
+    <div class="sec-hdr">
+      <div class="sec-title">📜 House Rules</div>
+      <div class="sec-sub">Standard Texas Hold'em applies — these are the house-specific rules</div>
+    </div>
+    <div class="card">
+      <ul class="rules-list" id="rules-list"></ul>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <div style="margin-bottom:6px"><span style="font-size:20px">♠ ♥ ♣ ♦</span></div>
+  <div id="footer-club-name" style="font-weight:600;font-size:14px;color:var(--text2);margin-bottom:4px"></div>
+  <div>Season data updates automatically · <a href="index.html">Manager App</a></div>
+</footer>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  CONFIG — edit these to match your setup
+// ═══════════════════════════════════════════════════════════
+var CF_URL      = 'https://cbpoker.smpalumb.workers.dev';
+var CLUB_NAME   = 'Friday Night Poker';
+var CLUB_TAGLINE= 'Weekly Texas Hold\'em Tournament';
+var KO_COST     = 10;
+var PHOTOS_URL  = 'https://spalumbo10.github.io/poker-app/photos';
+
+var HOUSE_RULES = [
+  'Standard Texas Hold\'em rules. Cards speak.',
+  'Buy-in is fixed per game — announced in the next game details above.',
+  'One rebuy allowed during the rebuy period (first 4 blind levels). Rebuys go to the pot.',
+  'Add-ons available at the break: full add-on (1.5×) or partial (1×).',
+  'Knockout bounties: each player carries a $10 bounty (×multiplier). Eliminating a player earns their bounty.',
+  'Points multiplier may be 1× or 2× for special weeks — announced in advance.',
+  'Points system: finish position × multiplier, plus 0.5 pts per KO × multiplier. Winner earns an extra multiplier bonus.',
+  'Phones away during hands. A single verbal declaration of action is binding.',
+  'The host\'s ruling is final on any dispute.',
+  'Have fun, play fair, tip your bartender. ♠',
+];
+
+// ═══════════════════════════════════════════════════════════
+//  State
+// ═══════════════════════════════════════════════════════════
+var seasonData  = null;
+var rsvpData    = { responses: [] };
+var nextGame    = null;
+var liveState   = null;
+var players     = [];
+var standings   = [];
+var sortKey     = 'pts';
+var earningsVisible = {}; // name → bool
+var allRevealed = false;
+
+// ═══════════════════════════════════════════════════════════
+//  Boot
+// ═══════════════════════════════════════════════════════════
+document.querySelectorAll('#nav-club-name,#hero-club-name,#footer-club-name').forEach(function(el){ el.textContent = CLUB_NAME; });
+document.querySelector('.hero-sub').textContent = CLUB_TAGLINE;
+document.title = CLUB_NAME + ' · Poker Night';
+renderRules();
+
+Promise.all([fetchSeason(), fetchNextGame(), fetchRsvp(), fetchLive()]).then(function() {
+  renderHeroStats();
+  renderNextGame();
+  renderRsvpList();
+  renderStandings();
+  renderStructure();
+  populateDatelist();
+});
+
+// ═══════════════════════════════════════════════════════════
+//  Fetches
+// ═══════════════════════════════════════════════════════════
+function fetchSeason() {
+  return fetch(CF_URL + '/sync-data', { cache: 'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d) return;
+      seasonData = d;
+      players = d.players || [];
+      standings = computeStandings(d.season);
+    }).catch(function(){});
+}
+function fetchNextGame() {
+  return fetch(CF_URL + '/next-game', { cache: 'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ nextGame = d; }).catch(function(){});
+}
+function fetchRsvp() {
+  return fetch(CF_URL + '/rsvp', { cache: 'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ if (d) rsvpData = d; }).catch(function(){});
+}
+function fetchLive() {
+  return fetch(CF_URL + '/state', { cache: 'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ liveState = d; }).catch(function(){});
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Standings computation
+// ═══════════════════════════════════════════════════════════
+function computeStandings(season) {
+  if (!season || !season.games || !season.games.length) return [];
+  var map = {};
+  season.games.forEach(function(game) {
+    var results = game.results || [];
+    var buyIn   = game.buyIn  || 0;
+    var mult    = game.mult   || 1;
+    var n       = results.length;
+    if (!n) return;
+
+    // Compute gross for payout pool
+    var gross = results.reduce(function(s, r) {
+      return s + (1 + (r.rebuys||0)) * buyIn
+               + (r.fullAddons||0) * 1.5 * buyIn
+               + (r.partialAddons||0) * buyIn;
+    }, 0);
+    var house = 2 * buyIn;
+    var net   = Math.max(0, gross - house);
+    var places = net < 1000
+      ? [{pct:.50},{pct:.30},{pct:.20}]
+      : [{pct:.45},{pct:.25},{pct:.15},{pct:.10},{pct:.05}];
+
+    results.forEach(function(r) {
+      if (!map[r.name]) map[r.name] = { name:r.name, pts:0, games:0, wins:0, moneyIn:0, moneyWon:0 };
+      var p = map[r.name];
+      p.pts   = (season.totals || {})[r.name] || 0;
+      p.games++;
+      if (r.pos === n) p.wins++;
+
+      var mIn = (1 + (r.rebuys||0)) * buyIn
+              + (r.fullAddons||0)    * 1.5 * buyIn
+              + (r.partialAddons||0) * buyIn
+              + (r.kosBought||0)     * KO_COST * mult;
+      p.moneyIn += mIn;
+
+      // Position payout (1=winner, n=first bust)
+      var finishPlace = n - r.pos + 1;
+      var payout = (finishPlace >= 1 && finishPlace <= places.length)
+        ? Math.floor(net * places[finishPlace-1].pct) : 0;
+      p.moneyWon += payout + (r.kos||0) * KO_COST * mult;
+    });
+  });
+  return Object.values(map).sort(function(a,b){ return b.pts - a.pts; });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Hero stats
+// ═══════════════════════════════════════════════════════════
+function renderHeroStats() {
+  var games   = seasonData && seasonData.season ? (seasonData.season.games || []).length : 0;
+  var nPlayers= standings.length;
+  var leader  = standings.length ? standings[0].name.split(' ')[0] : '—';
+  document.getElementById('stat-games').textContent   = games   || '—';
+  document.getElementById('stat-players').textContent = nPlayers|| '—';
+  document.getElementById('stat-leader').textContent  = leader;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Next Game
+// ═══════════════════════════════════════════════════════════
+function renderNextGame() {
+  var el = document.getElementById('next-game-info');
+  if (!nextGame || !nextGame.date) {
+    el.innerHTML =
+      '<div class="no-game-notice"><div>📅</div>No upcoming game announced yet.<br>Check back soon!</div>';
+    return;
+  }
+  var rows = [
+    {icon:'📅', lbl:'Date', val: nextGame.date || ''},
+    {icon:'🕖', lbl:'Time', val: nextGame.time || ''},
+    {icon:'📍', lbl:'Location', val: nextGame.location || ''},
+    {icon:'💵', lbl:'Buy-in', val: nextGame.buyIn ? '$' + nextGame.buyIn : ''},
+    {icon:'📝', lbl:'Notes', val: nextGame.notes || ''},
+  ].filter(function(r){ return r.val; });
+  el.innerHTML =
+    '<div style="font-size:15px;font-weight:700;margin-bottom:14px;color:var(--green)">▶ Game Announced</div>' +
+    '<div class="info-rows">' +
+    rows.map(function(r){
+      return '<div class="info-row">' +
+        '<span class="info-icon">'+r.icon+'</span>' +
+        '<div class="info-content"><div class="info-lbl">'+r.lbl+'</div><div class="info-val">'+esc(r.val)+'</div></div>' +
+        '</div>';
+    }).join('') + '</div>';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RSVP
+// ═══════════════════════════════════════════════════════════
+function populateDatelist() {
+  var dl = document.getElementById('player-list');
+  players.forEach(function(p){ dl.innerHTML += '<option value="'+esc(p.name)+'">'; });
+}
+
+function submitRsvp(status) {
+  var name = document.getElementById('rsvp-name').value.trim();
+  if (!name) { toast('Please enter your name'); return; }
+
+  fetch(CF_URL + '/rsvp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ name: name, status: status })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    rsvpData = d;
+    renderRsvpList();
+    document.getElementById('rsvp-name').value = '';
+    toast(status === 'in' ? '✓ You\'re in!' : 'Got it — see you next time!');
+  })
+  .catch(function(){ toast('Error — please try again'); });
+}
+
+function renderRsvpList() {
+  var el  = document.getElementById('rsvp-list-wrap');
+  var res = rsvpData.responses || [];
+  var inList  = res.filter(function(r){ return r.status === 'in'; });
+  var outList = res.filter(function(r){ return r.status === 'out'; });
+
+  if (!res.length) {
+    el.innerHTML = '<div class="empty">No RSVPs yet — be the first!</div>';
+    return;
+  }
+
+  function nameRows(list, cls) {
+    return list.map(function(r){
+      var av = playerAvatar(r.name, 26);
+      return '<div class="rsvp-name-row '+cls+'">' + av + esc(r.name) + '</div>';
+    }).join('');
+  }
+
+  el.innerHTML =
+    '<div class="rsvp-col-title rsvp-in-title">In <span class="rsvp-pill rsvp-pill-in">'+inList.length+'</span></div>' +
+    (inList.length ? nameRows(inList,'in') : '<div class="empty" style="padding:12px">No one yet</div>') +
+    (outList.length
+      ? '<div class="rsvp-col-title rsvp-out-title" style="margin-top:16px">Out <span class="rsvp-pill rsvp-pill-out">'+outList.length+'</span></div>' + nameRows(outList,'out')
+      : '');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Standings
+// ═══════════════════════════════════════════════════════════
+function setSort(key, btn) {
+  sortKey = key;
+  document.querySelectorAll('.sort-btn').forEach(function(b){ b.classList.remove('on'); });
+  btn.classList.add('on');
+  renderStandings();
+}
+
+function toggleRevealAll() {
+  allRevealed = !allRevealed;
+  document.getElementById('reveal-all-btn').textContent = allRevealed ? '🙈 Hide Earnings' : '👁 Reveal Earnings';
+  renderStandings();
+}
+
+function renderStandings() {
+  var tb = document.getElementById('standings-body');
+  if (!standings.length) {
+    tb.innerHTML = '<tr><td colspan="8"><div class="empty">No games played yet this season</div></td></tr>';
+    return;
+  }
+  var sorted = standings.slice().sort(function(a,b){
+    if (sortKey === 'wins')  return b.wins  - a.wins  || b.pts - a.pts;
+    if (sortKey === 'games') return b.games - a.games || b.pts - a.pts;
+    if (sortKey === 'net')   return (b.moneyWon - b.moneyIn) - (a.moneyWon - a.moneyIn);
+    return b.pts - a.pts;
+  });
+  tb.innerHTML = sorted.map(function(p, i) {
+    var rank = i + 1;
+    var rc   = rank === 1 ? 'r1' : rank === 2 ? 'r2' : rank === 3 ? 'r3' : '';
+    var sym  = rank === 1 ? '🏆' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+    var visible = allRevealed || earningsVisible[p.name];
+    var net  = p.moneyWon - p.moneyIn;
+    var nc   = net > 0 ? 'earn-pos' : net < 0 ? 'earn-neg' : 'earn-zero';
+    var earn = visible
+      ? '<td class="st-num earn-val '+nc+'" onclick="toggleEarn(\''+escJS(p.name)+'\')" title="Click to hide">$'+p.moneyIn+'</td>' +
+        '<td class="st-num earn-val '+nc+'" onclick="toggleEarn(\''+escJS(p.name)+'\')" title="Click to hide">$'+p.moneyWon+'</td>' +
+        '<td class="st-num earn-val '+nc+'" onclick="toggleEarn(\''+escJS(p.name)+'\')" title="Click to hide">'+(net>=0?'+':'')+net+'</td>'
+      : '<td colspan="3" style="text-align:right"><span class="earn-hidden" onclick="toggleEarn(\''+escJS(p.name)+'\')">🔒 hidden</span></td>';
+
+    return '<tr>' +
+      '<td class="rank-cell '+rc+'">'+sym+'</td>' +
+      '<td><div class="player-cell">' + playerAvatar(p.name, 36) + '<span class="st-name">'+esc(p.name)+'</span></div></td>' +
+      '<td class="st-pts">'+p.pts+'</td>' +
+      '<td class="st-num">'+p.games+'</td>' +
+      '<td class="st-num">'+p.wins+'</td>' +
+      earn +
+      '</tr>';
+  }).join('');
+}
+
+function toggleEarn(name) {
+  earningsVisible[name] = !earningsVisible[name];
+  renderStandings();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Blind structure
+// ═══════════════════════════════════════════════════════════
+function renderStructure() {
+  var el = document.getElementById('structure-wrap');
+  var levels = seasonData && seasonData.levels ? seasonData.levels : [];
+  if (!levels.length) {
+    el.innerHTML = '<div class="empty">No structure data available</div>';
+    return;
+  }
+  var curIdx = liveState && liveState.timer ? (liveState.timer.lvlIdx || 0) : -1;
+  var rows = levels.map(function(l, i) {
+    var isCur  = liveState && liveState.game && i === curIdx;
+    var cls    = l.type === 'break' ? 'break-row' : isCur ? 'cur-row' : '';
+    var lvlCell= '<td class="lvl-no">' + (i+1) + (isCur ? '<span class="cur-badge">LIVE</span>' : '') + '</td>';
+    if (l.type === 'break') {
+      return '<tr class="'+cls+'">'+lvlCell+'<td colspan="3">☕ Break</td><td>'+l.dur+' min</td></tr>';
+    }
+    return '<tr class="'+cls+'">'+lvlCell+'<td>'+l.sb+'</td><td>'+l.bb+'</td>' +
+      '<td>'+(l.ante||0)+'</td><td>'+l.dur+' min</td></tr>';
+  }).join('');
+  el.innerHTML =
+    '<table class="blind-table">' +
+    '<thead><tr><th>#</th><th>Small</th><th>Big</th><th>Ante</th><th>Time</th></tr></thead>' +
+    '<tbody>'+rows+'</tbody></table>';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Rules
+// ═══════════════════════════════════════════════════════════
+function renderRules() {
+  document.getElementById('rules-list').innerHTML = HOUSE_RULES.map(function(r, i){
+    return '<li><span class="rule-n">'+(i+1)+'</span>'+esc(r)+'</li>';
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Helpers
+// ═══════════════════════════════════════════════════════════
+function playerAvatar(name, size) {
+  var p = players.find(function(pl){ return pl.name === name; });
+  var url = p && (p.photoUrl || p.photo);
+  var init = name.split(' ').map(function(w){ return w[0]||''; }).join('').toUpperCase().slice(0,2);
+  var s = 'width:'+size+'px;height:'+size+'px;border-radius:50%;flex-shrink:0;overflow:hidden;';
+  if (url) {
+    return '<img src="'+url+'" style="'+s+'object-fit:cover" onerror="this.outerHTML=this.nextSibling.outerHTML">' +
+           '<div style="'+s+'background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:'+(size/3)+'px;font-weight:700;color:var(--text2)">'+init+'</div>';
+  }
+  return '<div style="'+s+'background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:'+(size/3)+'px;font-weight:700;color:var(--text2)">'+init+'</div>';
+}
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escJS(s){ return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+var _toastT;
+function toast(msg) {
+  var el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('on');
+  clearTimeout(_toastT);
+  _toastT = setTimeout(function(){ el.classList.remove('on'); }, 3000);
+}
+
+// Auto-refresh every 30s
+setInterval(function() {
+  Promise.all([fetchSeason(), fetchNextGame(), fetchRsvp(), fetchLive()]).then(function() {
+    renderHeroStats(); renderNextGame(); renderRsvpList(); renderStandings(); renderStructure();
+  });
+}, 30000);
+</script>
+</body>
+</html>

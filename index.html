@@ -281,6 +281,42 @@ h2{font-size:17px;font-weight:600}
           <div id="setup-list"></div>
         </div>
       </div>
+      <div class="card mt12">
+        <div class="between" style="margin-bottom:16px">
+          <div>
+            <h2 style="margin-bottom:2px">Next Game Announcement</h2>
+            <div style="font-size:12px;color:var(--text3)">Shown on the public page · push to cloud when ready</div>
+          </div>
+          <div class="row">
+            <button class="sm danger" onclick="clearNextGame()">Clear</button>
+            <button class="sm primary" onclick="pushNextGame()">&#8679; Push to public</button>
+          </div>
+        </div>
+        <div class="g2" style="gap:12px;margin-bottom:12px">
+          <div>
+            <div class="lbl">Date</div>
+            <input type="text" id="ng-date" placeholder="e.g. Friday, July 11" style="font-size:13px">
+          </div>
+          <div>
+            <div class="lbl">Time</div>
+            <input type="text" id="ng-time" placeholder="e.g. 7:00 PM" style="font-size:13px">
+          </div>
+          <div>
+            <div class="lbl">Location</div>
+            <input type="text" id="ng-location" placeholder="e.g. Steve's Place" style="font-size:13px">
+          </div>
+          <div>
+            <div class="lbl">Buy-in ($)</div>
+            <input type="number" id="ng-buyin" placeholder="e.g. 20" min="0" style="font-size:13px">
+          </div>
+        </div>
+        <div class="lbl">Notes</div>
+        <input type="text" id="ng-notes" placeholder="Optional — any extra info for players" style="font-size:13px;margin-bottom:12px">
+        <div class="between">
+          <button class="sm danger" onclick="clearRsvp()">&#128465; Clear all RSVPs</button>
+          <a href="public.html" target="_blank" style="font-size:12px;color:var(--text3)">&#8599; View public page</a>
+        </div>
+      </div>
     </div>
 
     <div id="panel-game" style="display:none">
@@ -606,6 +642,7 @@ function applyRole(role) {
   // Always apply floor button visibility based on role
   var floorCtls = document.getElementById('f-ctrl-row');
   if (floorCtls) floorCtls.style.display = role === 'viewer' ? 'none' : '';
+  if (role === 'admin') loadNextGameFields();
 }
 function logout() {
   sessionStorage.removeItem('pkr4-role');
@@ -843,6 +880,53 @@ function applyCloudData(data) {
   renderSeason(); renderFloorStandings(); renderRoster();
   if (!blindsActive) { renderLevels(); refreshBlindsDisp(); }
   updateSeasonStatus(); refreshTimerDisp(); refreshMultBtns(); renderFloorPot();
+}
+
+function pushNextGame() {
+  var url = getCfUrl(), key = getCfKey();
+  if (!url || !key) { toast('No Worker URL/key set'); return; }
+  var payload = JSON.stringify({
+    _key: key,
+    date:     (document.getElementById('ng-date')    ||{}).value || '',
+    time:     (document.getElementById('ng-time')    ||{}).value || '',
+    location: (document.getElementById('ng-location')||{}).value || '',
+    buyIn:    (document.getElementById('ng-buyin')   ||{}).value || '',
+    notes:    (document.getElementById('ng-notes')   ||{}).value || '',
+  });
+  fetch(url + '/next-game', { method:'POST', headers:{'Content-Type':'text/plain'}, body:payload })
+    .then(function(r){ toast(r.ok ? '✓ Next game pushed to public page' : '✗ Push failed'); })
+    .catch(function(){ toast('✗ Network error'); });
+}
+function clearNextGame() {
+  if (!confirm('Clear the next game announcement from the public page?')) return;
+  ['ng-date','ng-time','ng-location','ng-buyin','ng-notes'].forEach(function(id){
+    var el = document.getElementById(id); if (el) el.value = '';
+  });
+  pushNextGame();
+}
+function clearRsvp() {
+  if (!confirm('Clear all RSVPs from the public page?')) return;
+  var url = getCfUrl(), key = getCfKey();
+  if (!url || !key) { toast('No Worker URL/key set'); return; }
+  fetch(url + '/rsvp-clear', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ _key: key })
+  }).then(function(r){ toast(r.ok ? '✓ RSVPs cleared' : '✗ Failed'); })
+    .catch(function(){ toast('✗ Network error'); });
+}
+function loadNextGameFields() {
+  var url = getCfUrl(); if (!url) return;
+  fetch(url + '/next-game', { cache: 'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d) return;
+      var map = {date:'ng-date', time:'ng-time', location:'ng-location', buyIn:'ng-buyin', notes:'ng-notes'};
+      Object.keys(map).forEach(function(k){
+        var el = document.getElementById(map[k]);
+        if (el && d[k]) el.value = d[k];
+      });
+    }).catch(function(){});
 }
 
 function syncPull() {
