@@ -486,6 +486,19 @@ h2{font-size:17px;font-weight:600}
         <span id="cf-status" style="font-size:12px;color:var(--text3)"></span>
       </div>
     </div>
+
+    <!-- Player Accounts -->
+    <div class="card mt16">
+      <div class="between" style="margin-bottom:6px">
+        <h2>Player accounts</h2>
+        <div style="display:flex;gap:8px;flex-shrink:0">
+          <button class="sm primary" onclick="pushAccounts()">Push to cloud</button>
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:14px">Set an email per player, then generate an access token to share with them. Players log in via email code or by entering their token. You can regenerate or erase any token at any time.</div>
+      <div id="account-list"><em style="color:var(--text3);font-size:13px">No players on roster yet.</em></div>
+      <div style="margin-top:10px;font-size:12px;color:var(--text3)" id="account-status"></div>
+    </div>
   </div>
 
   <!-- ── SEASON TAB ────────────────────────────────────────────────────── -->
@@ -649,7 +662,7 @@ function applyRole(role) {
   // Always apply floor button visibility based on role
   var floorCtls = document.getElementById('f-ctrl-row');
   if (floorCtls) floorCtls.style.display = role === 'viewer' ? 'none' : '';
-  if (role === 'admin') loadNextGameFields();
+  if (role === 'admin') { loadNextGameFields(); loadPlayerAccounts(); }
 }
 function logout() {
   sessionStorage.removeItem('pkr4-role');
@@ -808,6 +821,121 @@ function syncPush(silent) {
     if (!silent) cfStatus(r.ok ? '✓ Synced to cloud' : '✗ Sync error ' + r.status, r.ok);
     if (r.ok) { var el=document.getElementById('sync-dot'); if(el){el.title='Last synced '+new Date().toLocaleTimeString();} }
   }).catch(function() { if (!silent) cfStatus('✗ Sync failed', false); });
+}
+
+// ── Player accounts ───────────────────────────────────────────────────────────
+// [{name, email, token}] — keyed by name, synced to KV
+var _playerAccounts = []; // array of {name, email, token}
+
+function _genAccessToken() {
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var r = '';
+  for (var i = 0; i < 8; i++) r += chars[Math.floor(Math.random() * chars.length)];
+  return r;
+}
+function _accountFor(name) {
+  var a = _playerAccounts.find(function(a){ return a.name === name; });
+  if (!a) { a = { name: name, email: '', token: '' }; _playerAccounts.push(a); }
+  return a;
+}
+function loadPlayerAccounts() {
+  var url = getCfUrl(); var key = getCfKey();
+  if (!url || !key) return;
+  fetch(url + '/player-accounts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ _key: key, action: 'get' })
+  }).then(function(r){ return r.json(); })
+    .then(function(d){
+      _playerAccounts = Array.isArray(d.accounts) ? d.accounts : [];
+      renderAccountList();
+    }).catch(function(){});
+}
+function renderAccountList() {
+  var el = document.getElementById('account-list');
+  if (!el) return;
+  var players = S.players || [];
+  if (!players.length) { el.innerHTML = '<em style="color:var(--text3);font-size:13px">No players on roster yet.</em>'; return; }
+  el.innerHTML = players.map(function(p) {
+    var acc = _playerAccounts.find(function(a){ return a.name === p.name; }) || { name: p.name, email: '', token: '' };
+    var tok = acc.token || '';
+    var emailVal = acc.email || '';
+    var nm = JSON.stringify(p.name);
+    return '<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)">' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+        '<span style="font-weight:600;min-width:110px;flex-shrink:0">' + esc(p.name) + '</span>' +
+        '<input type="email" placeholder="email@example.com" value="' + esc(emailVal) + '" ' +
+          'style="flex:1;min-width:160px;font-size:12px;padding:5px 8px" ' +
+          'oninput="setAccountEmail(' + nm + ', this.value)">' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:wrap">' +
+        (tok
+          ? '<code style="background:#111827;padding:3px 10px;border-radius:6px;font-size:13px;letter-spacing:.08em;color:#a3e635;flex-shrink:0">' + tok + '</code>'
+          : '<em style="font-size:12px;color:var(--text3);flex-shrink:0">No token</em>') +
+        '<button class="sm primary" onclick="generateAccountToken(' + nm + ')">Generate token</button>' +
+        (tok ? '<button class="sm danger" onclick="eraseAccountToken(' + nm + ')">Erase token</button>' : '') +
+        (emailVal && tok ? '<button class="sm" onclick="emailAccountToken(' + nm + ')">Email token</button>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+function setAccountEmail(name, email) {
+  var acc = _accountFor(name);
+  acc.email = email.trim();
+}
+function generateAccountToken(name) {
+  _accountFor(name).token = _genAccessToken();
+  renderAccountList();
+}
+function eraseAccountToken(name) {
+  _accountFor(name).token = '';
+  renderAccountList();
+}
+function emailAccountToken(name) {
+  var url = getCfUrl(); var key = getCfKey();
+  if (!url || !key) { alert('No worker configured'); return; }
+  var acc = _playerAccounts.find(function(a){ return a.name === name; });
+  if (!acc || !acc.email || !acc.token) return;
+  // Use reset-token endpoint to send current token via email
+  // We push accounts first, then trigger email
+  pushAccounts(function() {
+    fetch(url + '/reset-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ email: acc.email })
+    }).then(function(r){
+      document.getElementById('account-status').textContent = r.ok ? '✓ Token emailed to ' + acc.email : '✗ Email failed';
+      setTimeout(function(){ document.getElementById('account-status').textContent = ''; }, 4000);
+    });
+  });
+}
+function pushAccounts(cb) {
+  var url = getCfUrl(); var key = getCfKey();
+  if (!url || !key) { document.getElementById('account-status').textContent = 'No worker URL/key configured'; return; }
+  document.getElementById('account-status').textContent = 'Pushing…';
+  // Sync any inline email edits before pushing
+  var inputs = document.querySelectorAll('#account-list input[type="email"]');
+  var players = S.players || [];
+  inputs.forEach(function(inp, i) {
+    if (players[i]) {
+      _accountFor(players[i].name).email = inp.value.trim();
+    }
+  });
+  // Build clean array (only players currently on roster)
+  var toSave = players.map(function(p) {
+    var a = _playerAccounts.find(function(a){ return a.name === p.name; }) || { name: p.name, email: '', token: '' };
+    return { name: p.name, email: a.email || '', token: a.token || '' };
+  });
+  fetch(url + '/player-accounts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ _key: key, action: 'set', accounts: toSave })
+  }).then(function(r){
+    _playerAccounts = toSave;
+    document.getElementById('account-status').textContent = r.ok ? '✓ Pushed to cloud' : '✗ Error ' + r.status;
+    setTimeout(function(){ document.getElementById('account-status').textContent = ''; }, 3000);
+    if (cb) cb();
+  }).catch(function(){ document.getElementById('account-status').textContent = '✗ Failed'; });
 }
 
 function _hasFocusedInput(containerId) {
@@ -1597,6 +1725,7 @@ function renderRoster() {
       'oninput="setPhotoUrl('+p.id+', this.value)"></div>'+
     '</div>';
   }).join('');
+  renderAccountList();
 }
 
 // ─── Season ───────────────────────────────────────────────────────────────────
