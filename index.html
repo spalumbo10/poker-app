@@ -218,7 +218,6 @@ footer a:hover{color:var(--text)}
     <a class="nav-link" href="#standings">Standings</a>
     <a class="nav-link" href="#structure">Structure</a>
     <a class="nav-link" href="#rules">Rules</a>
-    <div id="nav-user" style="margin-left:8px;display:flex;align-items:center;flex-shrink:0"></div>
   </div>
 </nav>
 
@@ -351,58 +350,16 @@ footer a:hover{color:var(--text)}
 
 <div id="toast"></div>
 
-<!-- ── Member login modal ──────────────────────────── -->
+<!-- ── Viewer password modal ────────────────────────── -->
 <div id="auth-overlay" style="display:none" onclick="if(event.target===this)closeAuthModal()">
   <div id="auth-box">
-    <!-- Step 1: email -->
-    <div id="auth-s1">
-      <h3>🔒 Member Login</h3>
-      <p>Enter the email address on your account and we'll send you a login code.</p>
-      <input type="email" id="auth-email" placeholder="your@email.com" autocomplete="email" onkeydown="if(event.key==='Enter')sendOtp()">
-      <div id="auth-err"></div>
-      <div class="auth-btns">
-        <button class="btn btn-green" onclick="sendOtp()">Send Code</button>
-        <button class="btn" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border)" onclick="closeAuthModal()">Cancel</button>
-      </div>
-      <div style="margin-top:14px;text-align:center">
-        <a href="#" onclick="showTokenStep();return false;" style="font-size:12px;color:var(--text3)">Use access token instead</a>
-      </div>
-    </div>
-    <!-- Step 2: OTP -->
-    <div id="auth-s2" style="display:none">
-      <h3>📧 Check Your Email</h3>
-      <p id="auth-s2-msg">Enter the 6-digit code we sent you. It expires in 10 minutes.</p>
-      <input type="text" id="auth-otp" placeholder="123456" maxlength="6" inputmode="numeric" onkeydown="if(event.key==='Enter')verifyOtp()">
-      <div id="auth-err2"></div>
-      <div class="auth-btns">
-        <button class="btn btn-green" onclick="verifyOtp()">Verify</button>
-        <button class="btn" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border)" onclick="backToEmail()">Back</button>
-      </div>
-    </div>
-    <!-- Alt: access token -->
-    <div id="auth-s3" style="display:none">
-      <h3>🔑 Access Token</h3>
-      <p>Enter the access token the host shared with you.</p>
-      <input type="text" id="auth-token" placeholder="XXXXXXXX" autocomplete="off" spellcheck="false" style="text-transform:uppercase;letter-spacing:.1em" onkeydown="if(event.key==='Enter')submitToken()">
-      <div id="auth-err3"></div>
-      <div class="auth-btns">
-        <button class="btn btn-green" onclick="submitToken()">Unlock</button>
-        <button class="btn" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border)" onclick="backToEmail()">Back</button>
-      </div>
-      <div style="margin-top:14px;text-align:center">
-        <a href="#" onclick="showResetStep();return false;" style="font-size:12px;color:var(--text3)">Request a new token</a>
-      </div>
-    </div>
-    <!-- Alt: reset token -->
-    <div id="auth-s4" style="display:none">
-      <h3>🔄 Reset Access Token</h3>
-      <p>Enter your email and we'll generate a new token and send it to you.</p>
-      <input type="email" id="auth-reset-email" placeholder="your@email.com" autocomplete="email" onkeydown="if(event.key==='Enter')requestReset()">
-      <div id="auth-err4"></div>
-      <div class="auth-btns">
-        <button class="btn btn-green" onclick="requestReset()">Send New Token</button>
-        <button class="btn" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border)" onclick="backToEmail()">Back</button>
-      </div>
+    <h3>🔒 Members Only</h3>
+    <p>Enter the viewer password to see standings and RSVPs.</p>
+    <input type="password" id="auth-pw" placeholder="Password" onkeydown="if(event.key==='Enter')submitPassword()">
+    <div id="auth-err"></div>
+    <div class="auth-btns">
+      <button class="btn btn-green" onclick="submitPassword()">Unlock</button>
+      <button class="btn" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border)" onclick="closeAuthModal()">Cancel</button>
     </div>
   </div>
 </div>
@@ -446,7 +403,7 @@ var standings   = [];
 var sortKey     = 'pts';
 var earningsVisible = {};
 var allRevealed = false;
-var viewerUnlocked = false;
+var viewerUnlocked = sessionStorage.getItem('pkr-viewer') === '1';
 var _authCallback  = null;
 
 // ═══════════════════════════════════════════════════════════
@@ -470,8 +427,6 @@ var LOGO_URL = PHOTOS_URL + '/logo.jpg';
   img.onerror = function() { img.style.display = 'none'; };
 });
 
-checkStoredSession();
-renderUserNav();
 Promise.all([fetchSeason(), fetchNextGame(), fetchRsvp(), fetchLive()]).then(function() {
   renderHeroStats();
   renderNextGame();
@@ -511,142 +466,42 @@ function fetchLive() {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  Member auth
+//  Viewer auth — simple password via /auth endpoint
 // ═══════════════════════════════════════════════════════════
-var _currentUser = null; // {name, email, token}
-
-function checkStoredSession() {
-  var stored = localStorage.getItem('pkr-session');
-  if (!stored) return;
-  try {
-    var obj = JSON.parse(stored);
-    if (!obj.token || !obj.expires || Date.now() > obj.expires) { localStorage.removeItem('pkr-session'); return; }
-    viewerUnlocked = true;
-    _currentUser = { name: obj.name || '', email: obj.email || '', token: obj.token };
-    renderUserNav();
-    fetch(CF_URL + '/check-session', {
-      method: 'POST', headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ token: obj.token })
-    }).then(function(r){ return r.json(); }).then(function(d){
-      if (!d.valid) { viewerUnlocked = false; _currentUser = null; localStorage.removeItem('pkr-session'); renderUserNav(); renderRsvpList(); renderStandings(); }
-      else if (d.name) { _currentUser.name = d.name; _currentUser.email = d.email || ''; renderUserNav(); }
-    }).catch(function(){});
-  } catch(e) { localStorage.removeItem('pkr-session'); }
-}
-
-function _storeSession(sessionToken, name, email) {
-  viewerUnlocked = true;
-  _currentUser = { name: name, email: email, token: sessionToken };
-  localStorage.setItem('pkr-session', JSON.stringify({ token: sessionToken, name: name, email: email, expires: Date.now() + 86400000 }));
-  renderUserNav();
-  closeAuthModal();
-  renderRsvpList();
-  renderStandings();
-  if (_authCallback) { _authCallback(); _authCallback = null; }
-}
-
-function renderUserNav() {
-  var el = document.getElementById('nav-user');
-  if (!el) return;
-  if (_currentUser) {
-    el.innerHTML = '<span style="font-size:13px;color:var(--text2)">Hi, <strong>' + esc(_currentUser.name || _currentUser.email) + '</strong></span>' +
-      '<a href="#" onclick="logout();return false;" style="font-size:12px;color:var(--text3);text-decoration:none;margin-left:10px">Logout</a>';
-  } else {
-    el.innerHTML = '<a href="#" onclick="requireViewerAuth(function(){});return false;" class="nav-link" style="color:var(--green)">Member Login</a>';
-  }
-}
-
-function logout() {
-  viewerUnlocked = false; _currentUser = null;
-  localStorage.removeItem('pkr-session');
-  renderUserNav(); renderRsvpList(); renderStandings();
-}
-
 function requireViewerAuth(cb) {
   if (viewerUnlocked) { cb(); return; }
   _authCallback = cb;
-  _showAuthStep('s1');
   document.getElementById('auth-overlay').style.display = '';
-  setTimeout(function(){ document.getElementById('auth-email').focus(); }, 50);
+  document.getElementById('auth-pw').value = '';
+  document.getElementById('auth-err').textContent = '';
+  setTimeout(function(){ document.getElementById('auth-pw').focus(); }, 50);
 }
 function closeAuthModal() {
   document.getElementById('auth-overlay').style.display = 'none';
   _authCallback = null;
 }
-function _showAuthStep(s) {
-  ['s1','s2','s3','s4'].forEach(function(id){
-    document.getElementById('auth-' + id).style.display = id === s ? '' : 'none';
-  });
+function submitPassword() {
+  var pw = document.getElementById('auth-pw').value;
+  if (!pw) return;
   document.getElementById('auth-err').textContent = '';
-  document.getElementById('auth-err2').textContent = '';
-  document.getElementById('auth-err3').textContent = '';
-  document.getElementById('auth-err4').textContent = '';
-}
-function backToEmail()    { _showAuthStep('s1'); setTimeout(function(){ document.getElementById('auth-email').focus(); }, 50); }
-function showTokenStep()  { _showAuthStep('s3'); setTimeout(function(){ document.getElementById('auth-token').focus(); }, 50); }
-function showResetStep()  { _showAuthStep('s4'); setTimeout(function(){ document.getElementById('auth-reset-email').focus(); }, 50); }
-
-function sendOtp() {
-  var email = document.getElementById('auth-email').value.trim();
-  if (!email) return;
-  document.getElementById('auth-err').textContent = 'Sending…';
-  fetch(CF_URL + '/send-otp', {
-    method: 'POST', headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ email: email })
-  }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
-  .then(function(res){
-    if (res.ok) {
-      _showAuthStep('s2');
-      document.getElementById('auth-s2-msg').textContent = 'Enter the 6-digit code sent to ' + email + '. It expires in 10 minutes.';
-      document.getElementById('auth-otp').value = '';
-      setTimeout(function(){ document.getElementById('auth-otp').focus(); }, 50);
+  fetch(CF_URL + '/auth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ password: pw })
+  }).then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.role === 'admin' || d.role === 'viewer') {
+      viewerUnlocked = true;
+      sessionStorage.setItem('pkr-viewer', '1');
+      closeAuthModal();
+      renderRsvpList();
+      renderStandings();
+      if (_authCallback) { _authCallback(); _authCallback = null; }
     } else {
-      document.getElementById('auth-err').textContent = res.d.error === 'Email not on file' ? 'That email isn\'t on our member list.' : (res.d.error || 'Error — try again.');
+      document.getElementById('auth-err').textContent = 'Incorrect password.';
+      document.getElementById('auth-pw').select();
     }
   }).catch(function(){ document.getElementById('auth-err').textContent = 'Connection error — try again.'; });
-}
-
-function verifyOtp() {
-  var email = document.getElementById('auth-email').value.trim();
-  var code  = document.getElementById('auth-otp').value.trim();
-  if (!code) return;
-  document.getElementById('auth-err2').textContent = 'Verifying…';
-  fetch(CF_URL + '/verify-otp', {
-    method: 'POST', headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ email: email, code: code })
-  }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
-  .then(function(res){
-    if (res.ok && res.d.token) { _storeSession(res.d.token, res.d.name, res.d.email); }
-    else { document.getElementById('auth-err2').textContent = res.d.error || 'Invalid code — try again.'; document.getElementById('auth-otp').select(); }
-  }).catch(function(){ document.getElementById('auth-err2').textContent = 'Connection error — try again.'; });
-}
-
-function submitToken() {
-  var token = document.getElementById('auth-token').value.trim().toUpperCase();
-  if (!token) return;
-  document.getElementById('auth-err3').textContent = 'Checking…';
-  fetch(CF_URL + '/verify-token', {
-    method: 'POST', headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ token: token })
-  }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
-  .then(function(res){
-    if (res.ok && res.d.token) { _storeSession(res.d.token, res.d.name, res.d.email); }
-    else { document.getElementById('auth-err3').textContent = 'Invalid token — check with the host.'; document.getElementById('auth-token').select(); }
-  }).catch(function(){ document.getElementById('auth-err3').textContent = 'Connection error — try again.'; });
-}
-
-function requestReset() {
-  var email = document.getElementById('auth-reset-email').value.trim();
-  if (!email) return;
-  document.getElementById('auth-err4').textContent = 'Sending…';
-  fetch(CF_URL + '/reset-token', {
-    method: 'POST', headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ email: email })
-  }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
-  .then(function(res){
-    if (res.ok) { document.getElementById('auth-err4').textContent = '✓ New token sent — check your email.'; }
-    else { document.getElementById('auth-err4').textContent = res.d.error === 'Email not on file' ? 'That email isn\'t on our list.' : (res.d.error || 'Error — try again.'); }
-  }).catch(function(){ document.getElementById('auth-err4').textContent = 'Connection error — try again.'; });
 }
 
 // ═══════════════════════════════════════════════════════════
