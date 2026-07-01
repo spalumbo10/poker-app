@@ -164,6 +164,11 @@ footer a:hover{color:var(--text)}
 #toast.on{transform:none;opacity:1}
 .gap4{gap:4px}.gap8{gap:8px}.flex{display:flex}.items-center{align-items:center}.between{display:flex;align-items:center;justify-content:space-between}
 
+/* ── Live game section ───────────────────────────────── */
+.live-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.live-badge{display:inline-block;background:var(--red);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px;vertical-align:middle;animation:livepulse 2s ease-in-out infinite}
+@keyframes livepulse{0%,100%{opacity:1}50%{opacity:.5}}
+
 /* ── Mobile ──────────────────────────────────────────── */
 @media(max-width:760px){
   .page{padding:20px 12px 60px}
@@ -173,17 +178,14 @@ footer a:hover{color:var(--text)}
   .hero-sub{font-size:14px}
   .hero-stat{padding:10px 14px}
   .hero-stat-val{font-size:22px}
-  .game-grid{grid-template-columns:1fr}
+  .game-grid,.live-grid{grid-template-columns:1fr}
   .g2,.g3{grid-template-columns:1fr}
   /* stack RSVP buttons full-width */
   .rsvp-btns{flex-direction:column}
   .rsvp-btns .btn{width:100%;text-align:center;padding:12px}
-  /* hide money cols in standings, keep #/Player/Pts/Wins */
+  /* standings: hide Games, $ In, $ Won — keep Rank/Player/Pts/Wins/Net */
   .standings-table{min-width:0;width:100%}
-  .standings-table th:nth-child(4),
-  .standings-table td:nth-child(4),
-  .standings-table th:nth-child(n+6),
-  .standings-table td:nth-child(n+6){display:none}
+  .st-col-games,.st-col-in,.st-col-won{display:none}
   .standings-table th,.standings-table td{padding:10px 8px}
   .st-name{font-size:13px}
   .st-pts{font-size:15px}
@@ -235,6 +237,18 @@ footer a:hover{color:var(--text)}
       <div class="hero-stat"><div class="hero-stat-val" id="stat-games">—</div><div class="hero-stat-lbl">Games Played</div></div>
       <div class="hero-stat"><div class="hero-stat-val" id="stat-players">—</div><div class="hero-stat-lbl">Players</div></div>
       <div class="hero-stat"><div class="hero-stat-val" id="stat-leader">—</div><div class="hero-stat-lbl">Season Leader</div></div>
+    </div>
+  </div>
+
+  <!-- ── Live Game ────────────────────────────────── -->
+  <div class="section" id="live-game" style="display:none">
+    <div class="sec-hdr">
+      <div class="sec-title">🎮 Game In Progress <span class="live-badge">LIVE</span></div>
+      <div class="sec-sub">Updates every 30 seconds</div>
+    </div>
+    <div class="live-grid">
+      <div class="card" id="live-timer-card"><div class="loading"><div class="spin"></div> Loading…</div></div>
+      <div class="card" id="live-pot-card"><div class="loading"><div class="spin"></div> Loading…</div></div>
     </div>
   </div>
 
@@ -303,11 +317,11 @@ footer a:hover{color:var(--text)}
               <th style="width:44px">#</th>
               <th>Player</th>
               <th class="r">Points</th>
-              <th class="r">Games</th>
+              <th class="r st-col-games">Games</th>
               <th class="r">Wins</th>
-              <th class="r">$ In</th>
-              <th class="r">$ Won</th>
-              <th class="r">Net</th>
+              <th class="r st-col-in">$ In</th>
+              <th class="r st-col-won">$ Won</th>
+              <th class="r st-col-net">Net</th>
             </tr>
           </thead>
           <tbody id="standings-body">
@@ -429,6 +443,7 @@ var LOGO_URL = PHOTOS_URL + '/logo.jpg';
 
 Promise.all([fetchSeason(), fetchNextGame(), fetchRsvp(), fetchLive()]).then(function() {
   renderHeroStats();
+  renderLiveGame();
   renderNextGame();
   renderRsvpList();
   renderStandings();
@@ -760,16 +775,17 @@ function renderStandings() {
     var net  = p.moneyWon - p.moneyIn;
     var netc = net > 0 ? 'earn-pos' : net < 0 ? 'earn-neg' : 'earn-zero';
     var earn = visible
-      ? '<td class="st-num earn-val earn-neg" onclick="toggleEarn(\''+escJS(p.name)+'\')" title="Click to hide">$'+p.moneyIn+'</td>' +
-        '<td class="st-num earn-val earn-pos" onclick="toggleEarn(\''+escJS(p.name)+'\')" title="Click to hide">$'+p.moneyWon+'</td>' +
-        '<td class="st-num earn-val '+netc+'" onclick="toggleEarn(\''+escJS(p.name)+'\')" title="Click to hide">'+(net>=0?'+':'')+net+'</td>'
-      : '<td colspan="3" style="text-align:right"><span class="earn-hidden" onclick="toggleEarn(\''+escJS(p.name)+'\')">🔒 hidden</span></td>';
+      ? '<td class="st-num earn-val earn-neg st-col-in" onclick="toggleEarn(\''+escJS(p.name)+'\')" title="Click to hide">$'+p.moneyIn+'</td>' +
+        '<td class="st-num earn-val earn-pos st-col-won" onclick="toggleEarn(\''+escJS(p.name)+'\')" title="Click to hide">$'+p.moneyWon+'</td>' +
+        '<td class="st-num earn-val '+netc+' st-col-net" onclick="toggleEarn(\''+escJS(p.name)+'\')" title="Click to hide">'+(net>=0?'+':'')+net+'</td>'
+      : '<td class="st-col-in"></td><td class="st-col-won"></td>' +
+        '<td class="st-col-net" style="text-align:right"><span class="earn-hidden" onclick="toggleEarn(\''+escJS(p.name)+'\')">🔒 hidden</span></td>';
 
     return '<tr>' +
       '<td class="rank-cell '+rc+'">'+sym+'</td>' +
       '<td><div class="player-cell">' + playerAvatar(p.name, 36) + '<span class="st-name">'+esc(p.name)+'</span></div></td>' +
       '<td class="st-pts">'+p.pts+'</td>' +
-      '<td class="st-num">'+p.games+'</td>' +
+      '<td class="st-num st-col-games">'+p.games+'</td>' +
       '<td class="st-num">'+p.wins+'</td>' +
       earn +
       '</tr>';
@@ -809,6 +825,145 @@ function renderStructure() {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  Live Game
+// ═══════════════════════════════════════════════════════════
+function calcLivePot() {
+  var g = liveState && liveState.game;
+  if (!g) return null;
+  var buyIn    = g.buyIn    || 0;
+  var buyIns   = g.buyIns   || {};
+  var addons   = g.addons   || {};
+  var koBuyIns = g.koBuyIns || {};
+  var mult     = g.mult || 1;
+  var buyInTotal = Object.keys(buyIns).reduce(function(s,n){ return s + buyIns[n]; }, 0) * buyIn;
+  var addonTotal = Object.keys(addons).reduce(function(s,n){
+    return s + (addons[n].full||0)*1.5*buyIn + (addons[n].partial||0)*buyIn;
+  }, 0);
+  var koCount    = Object.keys(koBuyIns).reduce(function(s,n){ return s + koBuyIns[n]; }, 0);
+  var rawKoTotal = koCount * KO_COST * mult;
+  var koTotal    = g.koTotalOverride != null ? g.koTotalOverride : rawKoTotal;
+  var gross      = g.potOverride != null ? g.potOverride : (buyInTotal + addonTotal);
+  var house      = 2 * buyIn;
+  var net        = Math.max(0, gross - house);
+  var places     = net < 1000
+    ? [{label:'1st',pct:.50},{label:'2nd',pct:.30},{label:'3rd',pct:.20}]
+    : [{label:'1st',pct:.45},{label:'2nd',pct:.25},{label:'3rd',pct:.15},{label:'4th',pct:.10},{label:'5th',pct:.05}];
+  return {gross:gross, net:net, house:house, koTotal:koTotal, koCount:koCount, places:places};
+}
+
+var _liveTimerInterval = null;
+
+function renderLiveGame() {
+  var g   = liveState && liveState.game;
+  var sec = document.getElementById('live-game');
+  if (!sec) return;
+
+  if (!g) {
+    sec.style.display = 'none';
+    if (_liveTimerInterval) { clearInterval(_liveTimerInterval); _liveTimerInterval = null; }
+    return;
+  }
+  sec.style.display = '';
+
+  var levels  = liveState.levels || [];
+  var timer   = liveState.timer  || {};
+  var lvlIdx  = timer.lvlIdx || 0;
+  var level   = levels[lvlIdx];
+  var nextLvl = levels[lvlIdx + 1];
+
+  var bustOrder  = g.bustOrder || [];
+  var bustedSet  = {};
+  bustOrder.forEach(function(n){ bustedSet[n] = true; });
+  var active       = (g.players || []).filter(function(n){ return !bustedSet[n]; });
+  var totalPlayers = (g.players || []).length;
+
+  function computeSecs() {
+    var s = timer.secsLeft || 0;
+    if (timer.running && liveState.pushedAt) {
+      s = Math.max(0, s - Math.floor((Date.now() - liveState.pushedAt) / 1000));
+    }
+    return s;
+  }
+  function fmtTime(s) {
+    var m = Math.floor(s / 60), r = s % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r;
+  }
+
+  var blindsStr = '—';
+  var anteStr   = '';
+  var nextStr   = '';
+  if (level) {
+    blindsStr = level.type === 'break' ? 'BREAK' : (level.sb + ' / ' + level.bb);
+    if (level.ante > 0) anteStr = 'Ante: ' + level.ante;
+  }
+  if (nextLvl) {
+    nextStr = 'Next: ' + (nextLvl.type === 'break' ? 'Break' : nextLvl.sb + '/' + nextLvl.bb);
+  } else if (levels.length) {
+    nextStr = 'Final level';
+  }
+
+  var secs = computeSecs();
+  var timerColor = secs <= 30 ? 'var(--red)' : secs <= 60 ? 'var(--orange)' : 'var(--text)';
+
+  document.getElementById('live-timer-card').innerHTML =
+    '<div style="margin-bottom:16px">' +
+      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:4px">Blinds — Level ' + (lvlIdx + 1) + '</div>' +
+      '<div style="font-size:32px;font-weight:800;color:var(--blue)">' + esc(blindsStr) + '</div>' +
+      (anteStr ? '<div style="font-size:13px;color:var(--text3);margin-top:2px">' + esc(anteStr) + '</div>' : '') +
+    '</div>' +
+    '<div style="margin-bottom:16px">' +
+      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:4px">Time Remaining</div>' +
+      '<div id="live-timer-disp" style="font-size:44px;font-weight:800;font-variant-numeric:tabular-nums;color:' + timerColor + '">' + fmtTime(secs) + '</div>' +
+      (nextStr ? '<div style="font-size:12px;color:var(--text3);margin-top:2px">' + esc(nextStr) + '</div>' : '') +
+    '</div>' +
+    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:4px">Players Remaining</div>' +
+    '<div style="font-size:32px;font-weight:800;color:var(--green)">' + active.length +
+      '<span style="font-size:14px;font-weight:400;color:var(--text3);margin-left:6px">of ' + totalPlayers + '</span>' +
+    '</div>';
+
+  // Live countdown
+  if (_liveTimerInterval) clearInterval(_liveTimerInterval);
+  if (timer.running) {
+    _liveTimerInterval = setInterval(function() {
+      var el = document.getElementById('live-timer-disp');
+      if (!el) { clearInterval(_liveTimerInterval); _liveTimerInterval = null; return; }
+      var s = computeSecs();
+      el.textContent = fmtTime(s);
+      el.style.color = s <= 30 ? 'var(--red)' : s <= 60 ? 'var(--orange)' : 'var(--text)';
+    }, 1000);
+  }
+
+  // Pot card
+  var pot = calcLivePot();
+  var potCard = document.getElementById('live-pot-card');
+  if (!pot || pot.gross === 0) {
+    potCard.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px 0">Pot data unavailable</div>';
+    return;
+  }
+  potCard.innerHTML =
+    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:12px">Prize Pool</div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">' +
+      '<span style="font-size:13px;color:var(--text3)">Total pot</span>' +
+      '<span style="font-size:24px;font-weight:800;color:var(--blue)">$' + pot.gross + '</span>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">' +
+      '<span style="font-size:13px;color:var(--text3)">Prize pool</span>' +
+      '<span style="font-size:18px;font-weight:700;color:var(--green)">$' + pot.net + '</span>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">' +
+      '<span style="font-size:13px;color:var(--text3)">KO pool <span style="font-size:11px">(' + pot.koCount + ' bounties)</span></span>' +
+      '<span style="font-size:18px;font-weight:700;color:var(--orange)">$' + pot.koTotal + '</span>' +
+    '</div>' +
+    pot.places.map(function(p) {
+      return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:3px 0">' +
+        '<span style="font-size:14px;font-weight:700;color:var(--text2)">' + p.label + '</span>' +
+        '<span style="font-size:12px;color:var(--text3)">' + Math.round(p.pct * 100) + '%</span>' +
+        '<span style="font-size:16px;font-weight:700;color:var(--blue)">$' + Math.floor(pot.net * p.pct) + '</span>' +
+      '</div>';
+    }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
 //  Rules
 // ═══════════════════════════════════════════════════════════
 function renderRules() {
@@ -845,7 +1000,7 @@ function toast(msg) {
 // Auto-refresh every 30s
 setInterval(function() {
   Promise.all([fetchSeason(), fetchNextGame(), fetchRsvp(), fetchLive()]).then(function() {
-    renderHeroStats(); renderNextGame(); renderRsvpList(); renderStandings(); renderStructure();
+    renderHeroStats(); renderLiveGame(); renderNextGame(); renderRsvpList(); renderStandings(); renderStructure();
   });
 }, 30000);
 </script>
