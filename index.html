@@ -308,7 +308,6 @@ footer a:hover{color:var(--text)}
         <button class="sort-btn" onclick="setSort('wins',this)">Wins</button>
         <button class="sort-btn" onclick="setSort('games',this)">Games</button>
         <button class="sort-btn" onclick="setSort('net',this)">Net $</button>
-        <button class="reveal-all-btn" id="reveal-all-btn" onclick="toggleRevealAll()">👁 Reveal Earnings</button>
       </div>
       <div class="standings-wrap">
         <table class="standings-table">
@@ -415,8 +414,6 @@ var liveState   = null;
 var players     = [];
 var standings   = [];
 var sortKey     = 'pts';
-var earningsVisible = {};
-var allRevealed = false;
 var viewerUnlocked = sessionStorage.getItem('pkr-viewer') === '1';
 var _authCallback  = null;
 
@@ -741,12 +738,6 @@ function setSort(key, btn) {
   renderStandings();
 }
 
-function toggleRevealAll() {
-  allRevealed = !allRevealed;
-  document.getElementById('reveal-all-btn').textContent = allRevealed ? '🙈 Hide Earnings' : '👁 Reveal Earnings';
-  renderStandings();
-}
-
 function renderStandings() {
   var tb = document.getElementById('standings-body');
   if (!standings.length) {
@@ -771,15 +762,11 @@ function renderStandings() {
     var rank = i + 1;
     var rc   = rank === 1 ? 'r1' : rank === 2 ? 'r2' : rank === 3 ? 'r3' : '';
     var sym  = rank === 1 ? '🏆' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
-    var visible = allRevealed || earningsVisible[p.name];
     var net  = p.moneyWon - p.moneyIn;
     var netc = net > 0 ? 'earn-pos' : net < 0 ? 'earn-neg' : 'earn-zero';
-    var earn = visible
-      ? '<td class="st-num earn-val earn-neg st-col-in" onclick="toggleEarn(\''+escJS(p.name)+'\')" title="Click to hide">$'+p.moneyIn+'</td>' +
-        '<td class="st-num earn-val earn-pos st-col-won" onclick="toggleEarn(\''+escJS(p.name)+'\')" title="Click to hide">$'+p.moneyWon+'</td>' +
-        '<td class="st-num earn-val '+netc+' st-col-net" onclick="toggleEarn(\''+escJS(p.name)+'\')" title="Click to hide">'+(net>=0?'+':'')+net+'</td>'
-      : '<td class="st-col-in"></td><td class="st-col-won"></td>' +
-        '<td class="st-col-net" style="text-align:right"><span class="earn-hidden" onclick="toggleEarn(\''+escJS(p.name)+'\')">🔒 hidden</span></td>';
+    var earn = '<td class="st-num earn-val earn-neg st-col-in">$'+p.moneyIn+'</td>' +
+      '<td class="st-num earn-val earn-pos st-col-won">$'+p.moneyWon+'</td>' +
+      '<td class="st-num earn-val '+netc+' st-col-net">'+(net>=0?'+':'')+net+'</td>';
 
     return '<tr>' +
       '<td class="rank-cell '+rc+'">'+sym+'</td>' +
@@ -792,10 +779,6 @@ function renderStandings() {
   }).join('');
 }
 
-function toggleEarn(name) {
-  earningsVisible[name] = !earningsVisible[name];
-  renderStandings();
-}
 
 // ═══════════════════════════════════════════════════════════
 //  Blind structure
@@ -866,8 +849,8 @@ function renderLiveGame() {
     document.getElementById('live-timer-card').innerHTML =
       '<div class="locked-section">' +
         '<div class="lock-icon">🔒</div>' +
-        '<p>Game info is private.</p>' +
-        '<button class="btn btn-green btn-sm" onclick="requireViewerAuth(function(){})">Unlock</button>' +
+        '<p>Enter the viewer password to see game info.</p>' +
+        '<button class="btn btn-green btn-sm" onclick="requireViewerAuth(renderLiveGame)">Unlock</button>' +
       '</div>';
     document.getElementById('live-pot-card').innerHTML = '';
     return;
