@@ -851,8 +851,6 @@ function calcLivePot() {
   return {gross:gross, net:net, house:house, koTotal:koTotal, koCount:koCount, places:places};
 }
 
-var _liveTimerInterval = null;
-
 function renderLiveGame() {
   var g   = liveState && liveState.game;
   var sec = document.getElementById('live-game');
@@ -860,10 +858,20 @@ function renderLiveGame() {
 
   if (!g) {
     sec.style.display = 'none';
-    if (_liveTimerInterval) { clearInterval(_liveTimerInterval); _liveTimerInterval = null; }
     return;
   }
   sec.style.display = '';
+
+  if (!viewerUnlocked) {
+    document.getElementById('live-timer-card').innerHTML =
+      '<div class="locked-section">' +
+        '<div class="lock-icon">🔒</div>' +
+        '<p>Game info is private.</p>' +
+        '<button class="btn btn-green btn-sm" onclick="requireViewerAuth(function(){})">Unlock</button>' +
+      '</div>';
+    document.getElementById('live-pot-card').innerHTML = '';
+    return;
+  }
 
   var levels  = liveState.levels || [];
   var timer   = liveState.timer  || {};
@@ -876,18 +884,6 @@ function renderLiveGame() {
   bustOrder.forEach(function(n){ bustedSet[n] = true; });
   var active       = (g.players || []).filter(function(n){ return !bustedSet[n]; });
   var totalPlayers = (g.players || []).length;
-
-  function computeSecs() {
-    var s = timer.secsLeft || 0;
-    if (timer.running && liveState.pushedAt) {
-      s = Math.max(0, s - Math.floor((Date.now() - liveState.pushedAt) / 1000));
-    }
-    return s;
-  }
-  function fmtTime(s) {
-    var m = Math.floor(s / 60), r = s % 60;
-    return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r;
-  }
 
   var blindsStr = '—';
   var anteStr   = '';
@@ -902,36 +898,19 @@ function renderLiveGame() {
     nextStr = 'Final level';
   }
 
-  var secs = computeSecs();
-  var timerColor = secs <= 30 ? 'var(--red)' : secs <= 60 ? 'var(--orange)' : 'var(--text)';
-
   document.getElementById('live-timer-card').innerHTML =
-    '<div style="margin-bottom:16px">' +
-      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:4px">Blinds — Level ' + (lvlIdx + 1) + '</div>' +
-      '<div style="font-size:32px;font-weight:800;color:var(--blue)">' + esc(blindsStr) + '</div>' +
-      (anteStr ? '<div style="font-size:13px;color:var(--text3);margin-top:2px">' + esc(anteStr) + '</div>' : '') +
+    '<div style="margin-bottom:20px">' +
+      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:6px">Current Blinds — Level ' + (lvlIdx + 1) + '</div>' +
+      '<div style="font-size:36px;font-weight:800;color:var(--blue);line-height:1">' + esc(blindsStr) + '</div>' +
+      (anteStr ? '<div style="font-size:13px;color:var(--text3);margin-top:6px">' + esc(anteStr) + '</div>' : '') +
+      (nextStr ? '<div style="font-size:12px;color:var(--text3);margin-top:6px">' + esc(nextStr) + '</div>' : '') +
     '</div>' +
-    '<div style="margin-bottom:16px">' +
-      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:4px">Time Remaining</div>' +
-      '<div id="live-timer-disp" style="font-size:44px;font-weight:800;font-variant-numeric:tabular-nums;color:' + timerColor + '">' + fmtTime(secs) + '</div>' +
-      (nextStr ? '<div style="font-size:12px;color:var(--text3);margin-top:2px">' + esc(nextStr) + '</div>' : '') +
-    '</div>' +
-    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:4px">Players Remaining</div>' +
-    '<div style="font-size:32px;font-weight:800;color:var(--green)">' + active.length +
-      '<span style="font-size:14px;font-weight:400;color:var(--text3);margin-left:6px">of ' + totalPlayers + '</span>' +
+    '<div>' +
+      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:6px">Players Remaining</div>' +
+      '<div style="font-size:40px;font-weight:800;color:var(--green);line-height:1">' + active.length +
+        '<span style="font-size:15px;font-weight:400;color:var(--text3);margin-left:8px">of ' + totalPlayers + '</span>' +
+      '</div>' +
     '</div>';
-
-  // Live countdown
-  if (_liveTimerInterval) clearInterval(_liveTimerInterval);
-  if (timer.running) {
-    _liveTimerInterval = setInterval(function() {
-      var el = document.getElementById('live-timer-disp');
-      if (!el) { clearInterval(_liveTimerInterval); _liveTimerInterval = null; return; }
-      var s = computeSecs();
-      el.textContent = fmtTime(s);
-      el.style.color = s <= 30 ? 'var(--red)' : s <= 60 ? 'var(--orange)' : 'var(--text)';
-    }, 1000);
-  }
 
   // Pot card
   var pot = calcLivePot();
