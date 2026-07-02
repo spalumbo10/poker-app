@@ -508,6 +508,7 @@ function submitPassword() {
       closeAuthModal();
       renderRsvpList();
       renderStandings();
+      renderLiveGame();
       if (_authCallback) { _authCallback(); _authCallback = null; }
     } else {
       document.getElementById('auth-err').textContent = 'Incorrect password.';
