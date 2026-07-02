@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Poker">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -221,6 +222,13 @@ h2{font-size:17px;font-weight:600}
       <div class="fc" style="flex:1;min-height:0;overflow:hidden;align-items:stretch">
         <div class="fl" style="align-self:flex-start;margin-bottom:10px">Season standings</div>
         <div id="f-standings" style="overflow-y:auto;flex:1"></div>
+        <div style="flex-shrink:0;border-top:1px solid #1a3055;margin-top:10px;padding-top:10px;display:flex;align-items:center;gap:12px;justify-content:center">
+          <div id="f-qr" style="background:#fff;padding:4px;border-radius:4px;line-height:0;flex-shrink:0"></div>
+          <div style="font-size:clamp(10px,1.3vh,13px);color:#8ab0d0;text-align:left;line-height:1.4">
+            <div style="font-weight:700;color:#e0ecff;margin-bottom:2px">Full standings:</div>
+            <div>cbpokerleague.com</div>
+          </div>
+        </div>
       </div>
 
       <!-- Buy-in costs -->
@@ -2088,6 +2096,10 @@ function openFloor() {
     flogo.onerror = function(){ flogo.style.display = 'none'; };
   }
   refreshTimerDisp(); refreshBlindsDisp(); renderFloorStandings(); refreshFloorPlayBtn(); renderFloorPot(); renderFloorBuyIns();
+  var qrEl = document.getElementById('f-qr');
+  if (qrEl && !qrEl.hasChildNodes() && typeof QRCode !== 'undefined') {
+    new QRCode(qrEl, { text: 'https://cbpokerleague.com', width: 72, height: 72, colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.M });
+  }
   var isViewer = sessionStorage.getItem('pkr4-role') === 'viewer';
   var row = document.getElementById('f-ctrl-row');
   if (row) row.style.display = isViewer ? 'none' : '';
