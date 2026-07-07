@@ -309,7 +309,7 @@ h2{font-size:17px;font-weight:600}
         <div class="card">
           <div class="between" style="margin-bottom:14px">
             <h2>Players in this game <span id="sel-count" style="font-size:13px;font-weight:400;color:var(--text3)"></span></h2>
-            <div class="row"><button class="sm" onclick="selAll()">All</button><button class="sm" onclick="selNone()">None</button></div>
+            <div class="row"><button class="sm" onclick="selFromRsvp()" title="Check players who RSVP'd in">&#128204; From RSVP</button><button class="sm" onclick="selAll()">All</button><button class="sm" onclick="selNone()">None</button></div>
           </div>
           <div id="setup-list"></div>
         </div>
@@ -1130,6 +1130,43 @@ function toggleSel(name) {
 }
 function selAll()  { selectedPlayers=S.players.map(function(p){return p.name;}); renderSetupList(); }
 function selNone() { selectedPlayers=[]; renderSetupList(); }
+
+function selFromRsvp() {
+  var url = getCfUrl();
+  if (!url) { toast('No Worker URL set'); return; }
+  fetch(url + '/rsvp', { cache: 'no-store' })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var ins = (data.responses || []).filter(function(r) { return r.status === 'in'; });
+      if (!ins.length) { toast('No RSVPs found'); return; }
+      var added = 0, checked = 0;
+      ins.forEach(function(r) {
+        var name = r.name.trim();
+        // Match against existing roster (case-insensitive)
+        var match = S.players.find(function(p) { return p.name.toLowerCase() === name.toLowerCase(); });
+        if (match) {
+          // Use the canonical roster name
+          if (selectedPlayers.indexOf(match.name) < 0) { selectedPlayers.push(match.name); checked++; }
+        } else {
+          // Not on roster — add as guest
+          // Normalise guest label: if name already says "Guest of X" keep it, otherwise prefix
+          var guestName = /^guest of /i.test(name) ? name : 'Guest of ' + name;
+          // Find who they're a guest of and use their name if on roster
+          var hostMatch = name.match(/^guest of (.+)$/i);
+          if (hostMatch) {
+            var host = S.players.find(function(p) { return p.name.toLowerCase() === hostMatch[1].toLowerCase(); });
+            if (host) guestName = 'Guest of ' + host.name;
+          }
+          if (!S.players.some(function(p) { return p.name.toLowerCase() === guestName.toLowerCase(); }))
+            S.players.push({ id: Date.now() + added, name: guestName, photo: null });
+          if (selectedPlayers.indexOf(guestName) < 0) { selectedPlayers.push(guestName); added++; }
+        }
+      });
+      renderSetupList(); renderRoster(); saveData();
+      toast('RSVP: ' + (checked + added) + ' player' + (checked + added !== 1 ? 's' : '') + ' checked in' + (added ? ' (' + added + ' guest' + (added !== 1 ? 's' : '') + ' added)' : ''));
+    })
+    .catch(function() { toast('Failed to load RSVPs'); });
+}
 
 function addNewFromSetup() {
   var inp = document.getElementById('inp-new');
