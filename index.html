@@ -253,6 +253,15 @@ footer a:hover{color:var(--text)}
     </div>
   </div>
 
+  <!-- ── High Hand (always visible above tabs) ────── -->
+  <div class="section" id="high-hand-sec" style="display:none;margin-bottom:16px">
+    <div class="card" style="background:linear-gradient(135deg,#1a1200 0%,#0f1829 100%);border-color:#6b4e00;text-align:center;padding:20px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:#a07820;margin-bottom:8px">🃏 High Hand of the Night</div>
+      <div id="hh-hand" style="font-size:clamp(20px,5vw,32px);font-weight:800;color:#f5c842;line-height:1.1;margin-bottom:4px"></div>
+      <div id="hh-player" style="font-size:14px;color:#c8a840;font-weight:500"></div>
+    </div>
+  </div>
+
   <!-- ── Tab bar ───────────────────────────────────── -->
   <div class="pub-tabs">
     <button class="pub-tab on" onclick="showPubTab('game',this)">🎮 Game</button>
@@ -273,15 +282,6 @@ footer a:hover{color:var(--text)}
       <div class="live-grid">
         <div class="card" id="live-timer-card"><div class="loading"><div class="spin"></div> Loading…</div></div>
         <div class="card" id="live-pot-card"><div class="loading"><div class="spin"></div> Loading…</div></div>
-      </div>
-    </div>
-
-    <!-- High Hand -->
-    <div class="section" id="high-hand-sec" style="display:none">
-      <div class="card" style="background:linear-gradient(135deg,#1a1200 0%,#0f1829 100%);border-color:#6b4e00;text-align:center;padding:24px 20px">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:#a07820;margin-bottom:10px">🃏 High Hand of the Night</div>
-        <div id="hh-hand" style="font-size:clamp(22px,5vw,36px);font-weight:800;color:#f5c842;line-height:1.1;margin-bottom:6px"></div>
-        <div id="hh-player" style="font-size:15px;color:#c8a840;font-weight:500"></div>
       </div>
     </div>
 
@@ -975,7 +975,7 @@ function renderStandings() {
     var tags = '';
     if (p.wins > 0)  tags += '<span class="s-tag" style="color:var(--gold)">' + p.wins + ' win' + (p.wins>1?'s':'') + '</span>';
     if (p.games > 0) tags += '<span class="s-tag" style="color:var(--text3)">' + p.games + ' game' + (p.games>1?'s':'') + '</span>';
-    return '<div class="s-row" onclick="showPlayerStats(' + JSON.stringify(p.name) + ')">' +
+    return '<div class="s-row" onclick="showPlayerStats(\'' + escJS(p.name) + '\')">' +
       '<span class="s-rank" style="color:' + col + '">' + sym + '</span>' +
       playerAvatar(p.name, 38) +
       '<div class="s-info" style="margin-left:10px">' +
