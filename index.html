@@ -192,6 +192,13 @@ footer a:hover{color:var(--text)}
 .s-pts-wrap{text-align:right;flex-shrink:0}
 .s-pts{font-size:18px;font-weight:800;color:var(--blue);display:block}
 .s-pts-lbl{font-size:10px;color:var(--text3)}
+.s-row{cursor:pointer;border-radius:8px;transition:background .12s}
+.s-row:hover{background:rgba(79,124,255,.08)}
+
+/* Player modal stat tiles */
+.pm-tile{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;text-align:center}
+.pm-tile-val{font-size:22px;font-weight:800;color:var(--text);line-height:1}
+.pm-tile-lbl{font-size:10px;color:var(--text3);margin-top:4px;text-transform:uppercase;letter-spacing:.05em}
 
 /* ── Mobile ──────────────────────────────────────────── */
 @media(max-width:760px){
@@ -383,6 +390,22 @@ footer a:hover{color:var(--text)}
 
 <div id="toast"></div>
 
+<!-- Player stats modal -->
+<div id="player-modal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);padding:20px;overflow-y:auto" onclick="if(event.target===this)closePlayerModal()">
+  <div style="max-width:420px;margin:40px auto;background:var(--bg2);border:1px solid var(--border2);border-radius:16px;overflow:hidden">
+    <div id="pm-header" style="padding:20px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px">
+      <div id="pm-avatar"></div>
+      <div style="flex:1;min-width:0">
+        <div id="pm-name" style="font-size:18px;font-weight:800;color:var(--text)"></div>
+        <div id="pm-sub" style="font-size:12px;color:var(--text3);margin-top:2px"></div>
+      </div>
+      <button onclick="closePlayerModal()" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:4px;line-height:1">✕</button>
+    </div>
+    <div id="pm-stats" style="padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+    <div id="pm-games" style="padding:0 20px 20px"></div>
+  </div>
+</div>
+
 <!-- ── Viewer password modal ────────────────────────── -->
 <div id="auth-overlay" style="display:none" onclick="if(event.target===this)closeAuthModal()">
   <div id="auth-box">
@@ -545,6 +568,7 @@ function submitPassword() {
       closeAuthModal();
       renderRsvpList();
       renderStandings();
+      renderGameHistory();
       renderLiveGame();
       if (_authCallback) { _authCallback(); _authCallback = null; }
     } else {
@@ -784,6 +808,14 @@ function showPubTab(name, btn) {
 function renderGameHistory() {
   var el = document.getElementById('history-body');
   if (!el) return;
+  if (!viewerUnlocked) {
+    el.innerHTML = '<div class="locked-section">' +
+      '<div class="lock-icon">🔒</div>' +
+      '<p>Game history is private.<br>Enter the viewer password to view.</p>' +
+      '<button class="btn btn-green btn-sm" onclick="requireViewerAuth(renderGameHistory)">Unlock</button>' +
+      '</div>';
+    return;
+  }
   var season = seasonData && seasonData.season;
   if (!season || !season.games || !season.games.length) {
     el.innerHTML = '<div class="empty">No games played yet this season</div>';
@@ -791,7 +823,6 @@ function renderGameHistory() {
   }
   el.innerHTML = season.games.slice().reverse().map(function(g) {
     var total   = g.results ? g.results.length : 0;
-    var bi      = g.buyIn || 0;
     var dateStr = g.date ? g.date : (g.week ? 'Week ' + g.week : '');
     var rows = (g.results || []).slice().sort(function(a,b){ return b.pos - a.pos; }).map(function(r) {
       var extras = [];
@@ -810,11 +841,102 @@ function renderGameHistory() {
     return '<div style="margin-bottom:20px">' +
       '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid var(--border2)">' +
         '<span style="font-size:15px;font-weight:700;color:var(--text)">Game #' + g.num + (dateStr ? ' — ' + dateStr : '') + '</span>' +
-        '<span style="font-size:12px;color:var(--text3)">' + total + ' players · $' + bi + ' buy-in</span>' +
+        '<span style="font-size:12px;color:var(--text3)">' + total + ' players</span>' +
       '</div>' +
       rows +
     '</div>';
   }).join('');
+}
+
+function closePlayerModal() {
+  document.getElementById('player-modal').style.display = 'none';
+}
+
+function showPlayerStats(name) {
+  var season = seasonData && seasonData.season;
+  if (!season || !season.games) return;
+
+  var games = season.games.filter(function(g) {
+    return (g.results || []).some(function(r) { return r.name === name; });
+  });
+
+  var totalGames   = games.length;
+  var totalWins    = 0;
+  var totalKos     = 0;
+  var totalRebuys  = 0;
+  var finishPlaces = [];
+
+  games.forEach(function(g) {
+    var n = (g.results || []).length;
+    var r = (g.results || []).find(function(r) { return r.name === name; });
+    if (!r) return;
+    var place = n - r.pos + 1;
+    finishPlaces.push(place);
+    if (r.pos === n) totalWins++;
+    totalKos    += (r.kos || 0);
+    totalRebuys += (r.rebuys || 0);
+  });
+
+  var avgFinish = totalGames
+    ? (finishPlaces.reduce(function(a,b){return a+b;},0) / totalGames).toFixed(1)
+    : '—';
+  var avgKos = totalGames
+    ? (totalKos / totalGames).toFixed(1)
+    : '—';
+  var bestFinish = finishPlaces.length ? Math.min.apply(null, finishPlaces) : '—';
+  var pts = (season.totals || {})[name] || 0;
+
+  var ordinal = function(n) {
+    var s = ['th','st','nd','rd'], v = n % 100;
+    return n + (s[(v-20)%10] || s[v] || s[0]);
+  };
+
+  var tiles = [
+    { val: totalGames,              lbl: 'Games Played' },
+    { val: totalWins,               lbl: 'Wins' },
+    { val: typeof bestFinish === 'number' ? ordinal(bestFinish) : '—', lbl: 'Best Finish' },
+    { val: avgFinish,               lbl: 'Avg Finish' },
+    { val: totalKos,                lbl: 'Total KOs' },
+    { val: avgKos,                  lbl: 'Avg KOs / Game' },
+    { val: totalRebuys,             lbl: 'Total Rebuys' },
+    { val: pts,                     lbl: 'Season Points' },
+  ];
+
+  var standing = standings.findIndex(function(p){ return p.name === name; });
+  var rank = standing >= 0 ? standing + 1 : null;
+
+  document.getElementById('pm-avatar').innerHTML = playerAvatar(name, 48);
+  document.getElementById('pm-name').textContent = name;
+  document.getElementById('pm-sub').textContent  = rank ? 'Ranked #' + rank + ' this season' : '';
+  document.getElementById('pm-stats').innerHTML  = tiles.map(function(t) {
+    return '<div class="pm-tile"><div class="pm-tile-val">' + t.val + '</div><div class="pm-tile-lbl">' + t.lbl + '</div></div>';
+  }).join('');
+
+  // Per-game history
+  var histRows = games.slice().reverse().map(function(g) {
+    var n = (g.results || []).length;
+    var r = (g.results || []).find(function(r) { return r.name === name; });
+    if (!r) return '';
+    var place = n - r.pos + 1;
+    var label = g.week ? 'Wk ' + g.week + ', G' + (g.gameInWeek||1) : 'Game #' + g.num;
+    var extras = [];
+    if ((r.rebuys||0) > 0)     extras.push(r.rebuys + 'R');
+    if ((r.kos||0) > 0)        extras.push(r.kos + ' KO');
+    if ((r.fullAddons||0) > 0) extras.push(r.fullAddons + 'FA');
+    return '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:6px 0;border-bottom:1px solid var(--border)">' +
+      '<span style="color:var(--text2)">' + label + '</span>' +
+      '<span style="display:flex;gap:8px;align-items:center">' +
+        (extras.length ? '<span style="color:var(--orange);font-size:11px">' + extras.join(' · ') + '</span>' : '') +
+        '<span style="color:var(--text3);min-width:34px;text-align:right">' + ordinal(place) + ' place</span>' +
+      '</span>' +
+    '</div>';
+  }).join('');
+
+  document.getElementById('pm-games').innerHTML = histRows
+    ? '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">Game Log</div>' + histRows
+    : '';
+
+  document.getElementById('player-modal').style.display = '';
 }
 
 function setSort(key, btn) {
@@ -851,11 +973,9 @@ function renderStandings() {
     var net  = p.moneyWon - p.moneyIn;
     var netc = net > 0 ? '#22c55e' : net < 0 ? 'var(--red)' : 'var(--text3)';
     var tags = '';
-    if (p.wins > 0)     tags += '<span class="s-tag" style="color:var(--gold)">' + p.wins + ' win' + (p.wins>1?'s':'') + '</span>';
-    if (p.games > 0)    tags += '<span class="s-tag" style="color:var(--text3)">' + p.games + ' game' + (p.games>1?'s':'') + '</span>';
-    if (p.moneyWon > 0) tags += '<span class="s-tag" style="color:var(--green)">$' + p.moneyWon + ' won</span>';
-    if (net !== 0)      tags += '<span class="s-tag" style="color:' + netc + '">Net ' + (net >= 0 ? '+' : '') + net + '</span>';
-    return '<div class="s-row">' +
+    if (p.wins > 0)  tags += '<span class="s-tag" style="color:var(--gold)">' + p.wins + ' win' + (p.wins>1?'s':'') + '</span>';
+    if (p.games > 0) tags += '<span class="s-tag" style="color:var(--text3)">' + p.games + ' game' + (p.games>1?'s':'') + '</span>';
+    return '<div class="s-row" onclick="showPlayerStats(' + JSON.stringify(p.name) + ')">' +
       '<span class="s-rank" style="color:' + col + '">' + sym + '</span>' +
       playerAvatar(p.name, 38) +
       '<div class="s-info" style="margin-left:10px">' +
