@@ -1,5 +1,5 @@
-const CACHE = 'poker-v5';
-const FILES = ['./index.html', './manifest.json', './icon.svg'];
+const CACHE = 'poker-v7';
+const FILES = ['./index.html', './admin.html', './manifest.json', './admin-manifest.json', './icon.svg'];
 
 self.addEventListener('install', function(e) {
   e.waitUntil(
