@@ -2,8 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Poker Night</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="theme-color" content="#4f7cff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CB Poker">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -169,40 +175,43 @@ footer a:hover{color:var(--text)}
 .live-badge{display:inline-block;background:var(--red);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px;vertical-align:middle;animation:livepulse 2s ease-in-out infinite}
 @keyframes livepulse{0%,100%{opacity:1}50%{opacity:.5}}
 
+/* ── Pub tabs ────────────────────────────────────────── */
+.pub-tabs{display:flex;gap:4px;margin-bottom:24px;background:var(--bg2);border-radius:var(--r);padding:4px;border:1px solid var(--border)}
+.pub-tab{flex:1;background:transparent;border:none;border-radius:8px;padding:9px 6px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap}
+.pub-tab.on{background:var(--blue);color:#fff}
+.pub-tab:hover:not(.on){background:var(--bg4);color:var(--text)}
+
+/* ── Card-style standings ────────────────────────────── */
+.s-row{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid rgba(30,48,80,.5)}
+.s-row:last-child{border-bottom:none}
+.s-rank{font-size:18px;font-weight:800;min-width:36px;text-align:center;flex-shrink:0}
+.s-info{flex:1;min-width:0}
+.s-name{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s-tags{display:flex;gap:6px;margin-top:2px;flex-wrap:wrap}
+.s-tag{font-size:11px}
+.s-pts-wrap{text-align:right;flex-shrink:0}
+.s-pts{font-size:18px;font-weight:800;color:var(--blue);display:block}
+.s-pts-lbl{font-size:10px;color:var(--text3)}
+
 /* ── Mobile ──────────────────────────────────────────── */
 @media(max-width:760px){
   .page{padding:20px 12px 60px}
-  .section{margin-bottom:44px}
-  .hero{padding:32px 14px;margin-bottom:36px}
+  .section{margin-bottom:32px}
+  .hero{padding:32px 14px;margin-bottom:24px}
   .hero-title{font-size:26px}
   .hero-sub{font-size:14px}
   .hero-stat{padding:10px 14px}
   .hero-stat-val{font-size:22px}
   .game-grid,.live-grid{grid-template-columns:1fr}
   .g2,.g3{grid-template-columns:1fr}
-  /* stack RSVP buttons full-width */
   .rsvp-btns{flex-direction:column}
   .rsvp-btns .btn{width:100%;text-align:center;padding:12px}
-  /* standings: hide Games, $ In, $ Won — keep Rank/Player/Pts/Wins/Net */
-  .standings-table{min-width:0;width:100%}
-  .st-col-games,.st-col-in,.st-col-won{display:none}
-  .standings-table th,.standings-table td{padding:10px 8px}
-  .st-name{font-size:13px}
-  .st-pts{font-size:15px}
-  .player-cell{min-width:0}
-  /* sort buttons wrap naturally */
-  .standings-bar{gap:6px}
-  .sort-btn,.reveal-all-btn{padding:5px 10px;font-size:11px}
-  .reveal-all-btn{margin-left:0}
-  /* blind table compact */
   .blind-table th,.blind-table td{padding:9px 10px;font-size:13px}
-  /* nav */
-  nav .nav-inner{padding:0 12px;gap:0}
-  a.nav-link{font-size:11px;padding:5px 7px}
+  nav .nav-inner{padding:0 12px}
   .nav-brand{font-size:14px}
   .card{padding:16px}
-  .card-sm{padding:12px}
   #toast{bottom:12px;right:12px;left:12px;max-width:none;text-align:center}
+  .pub-tab{font-size:11px;padding:8px 4px}
 }
 </style>
 </head>
@@ -216,10 +225,7 @@ footer a:hover{color:var(--text)}
       <span id="nav-suit-fallback" class="nav-suit">♠</span>
       <span id="nav-club-name">Poker Night</span>
     </a>
-    <a class="nav-link" href="#rsvp">RSVP</a>
-    <a class="nav-link" href="#standings">Standings</a>
-    <a class="nav-link" href="#structure">Structure</a>
-    <a class="nav-link" href="#rules">Rules</a>
+    <button class="nav-link" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--text2);padding:5px 10px;font-family:inherit" onclick="requireViewerAuth(function(){})">🔓 Unlock</button>
   </div>
 </nav>
 
@@ -240,118 +246,132 @@ footer a:hover{color:var(--text)}
     </div>
   </div>
 
-  <!-- ── Live Game ────────────────────────────────── -->
-  <div class="section" id="live-game" style="display:none">
-    <div class="sec-hdr">
-      <div class="sec-title">🎮 Game In Progress <span class="live-badge">LIVE</span></div>
-      <div class="sec-sub">Updates every 30 seconds</div>
-    </div>
-    <div class="live-grid">
-      <div class="card" id="live-timer-card"><div class="loading"><div class="spin"></div> Loading…</div></div>
-      <div class="card" id="live-pot-card"><div class="loading"><div class="spin"></div> Loading…</div></div>
-    </div>
+  <!-- ── Tab bar ───────────────────────────────────── -->
+  <div class="pub-tabs">
+    <button class="pub-tab on" onclick="showPubTab('game',this)">🎮 Game</button>
+    <button class="pub-tab" onclick="showPubTab('standings',this)">🏆 Standings</button>
+    <button class="pub-tab" onclick="showPubTab('history',this)">📋 History</button>
+    <button class="pub-tab" onclick="showPubTab('structure',this)">📐 Structure</button>
   </div>
 
-  <!-- ── Next Game / RSVP ──────────────────────────── -->
-  <div class="section" id="rsvp">
-    <div class="sec-hdr">
-      <div class="sec-title">🗓 Next Game</div>
-      <div class="sec-sub">Let us know if you're in — RSVP updates are live</div>
-    </div>
-    <div class="game-grid">
+  <!-- ══ TAB: Game ══════════════════════════════════ -->
+  <div id="pub-game" class="pub-panel">
 
-      <!-- Left: info + form -->
-      <div>
-        <div class="card" style="margin-bottom:16px">
-          <div id="next-game-info"><div class="loading"><div class="spin"></div> Loading game info…</div></div>
-        </div>
-        <div class="card" id="rsvp-form-card">
-          <div style="font-size:15px;font-weight:600;margin-bottom:14px">Add your RSVP</div>
-          <div class="rsvp-form-wrap">
-            <div class="rsvp-label">Your name</div>
-            <select id="rsvp-select" class="rsvp-name-input" onchange="onRsvpSelectChange()">
-              <option value="">— Select your name —</option>
-            </select>
-            <input type="text" id="rsvp-other" class="rsvp-name-input" placeholder="Type your name" style="display:none">
-            <div class="rsvp-btns">
-              <button class="btn btn-green" onclick="submitRsvp('in')">✓ I'm In</button>
-              <button class="btn btn-red" onclick="submitRsvp('out')">✗ Can't Make It</button>
-            </div>
-            <div id="rsvp-guest-toggle" style="display:none;margin-top:10px;text-align:center">
-              <a href="#" onclick="toggleGuestField();return false;" id="rsvp-guest-link" style="font-size:13px;color:var(--green);text-decoration:none">+ Bringing a guest?</a>
-            </div>
-            <div id="rsvp-guest-wrap" style="display:none;margin-top:10px">
-              <div class="rsvp-label" style="margin-top:6px">Guest name <span style="font-weight:400;opacity:.7">(optional)</span></div>
-              <input type="text" id="rsvp-guest-name" class="rsvp-name-input" placeholder="Leave blank for 'Guest of [your name]'">
+    <!-- Live Game -->
+    <div class="section" id="live-game" style="display:none">
+      <div class="sec-hdr">
+        <div class="sec-title">🎮 Game In Progress <span class="live-badge">LIVE</span></div>
+        <div class="sec-sub">Updates every 30 seconds</div>
+      </div>
+      <div class="live-grid">
+        <div class="card" id="live-timer-card"><div class="loading"><div class="spin"></div> Loading…</div></div>
+        <div class="card" id="live-pot-card"><div class="loading"><div class="spin"></div> Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- High Hand -->
+    <div class="section" id="high-hand-sec" style="display:none">
+      <div class="card" style="background:linear-gradient(135deg,#1a1200 0%,#0f1829 100%);border-color:#6b4e00;text-align:center;padding:24px 20px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:#a07820;margin-bottom:10px">🃏 High Hand of the Night</div>
+        <div id="hh-hand" style="font-size:clamp(22px,5vw,36px);font-weight:800;color:#f5c842;line-height:1.1;margin-bottom:6px"></div>
+        <div id="hh-player" style="font-size:15px;color:#c8a840;font-weight:500"></div>
+      </div>
+    </div>
+
+    <!-- Next Game / RSVP -->
+    <div class="section" id="rsvp">
+      <div class="sec-hdr">
+        <div class="sec-title">🗓 Next Game</div>
+        <div class="sec-sub">Let us know if you're in — RSVP updates are live</div>
+      </div>
+      <div class="game-grid">
+        <div>
+          <div class="card" style="margin-bottom:16px">
+            <div id="next-game-info"><div class="loading"><div class="spin"></div> Loading game info…</div></div>
+          </div>
+          <div class="card" id="rsvp-form-card">
+            <div style="font-size:15px;font-weight:600;margin-bottom:14px">Add your RSVP</div>
+            <div class="rsvp-form-wrap">
+              <div class="rsvp-label">Your name</div>
+              <select id="rsvp-select" class="rsvp-name-input" onchange="onRsvpSelectChange()">
+                <option value="">— Select your name —</option>
+              </select>
+              <input type="text" id="rsvp-other" class="rsvp-name-input" placeholder="Type your name" style="display:none">
+              <div class="rsvp-btns">
+                <button class="btn btn-green" onclick="submitRsvp('in')">✓ I'm In</button>
+                <button class="btn btn-red" onclick="submitRsvp('out')">✗ Can't Make It</button>
+              </div>
+              <div id="rsvp-guest-toggle" style="display:none;margin-top:10px;text-align:center">
+                <a href="#" onclick="toggleGuestField();return false;" id="rsvp-guest-link" style="font-size:13px;color:var(--green);text-decoration:none">+ Bringing a guest?</a>
+              </div>
+              <div id="rsvp-guest-wrap" style="display:none;margin-top:10px">
+                <div class="rsvp-label" style="margin-top:6px">Guest name <span style="font-weight:400;opacity:.7">(optional)</span></div>
+                <input type="text" id="rsvp-guest-name" class="rsvp-name-input" placeholder="Leave blank for 'Guest of [your name]'">
+              </div>
             </div>
           </div>
         </div>
+        <div class="card">
+          <div id="rsvp-list-wrap"><div class="loading"><div class="spin"></div> Loading RSVPs…</div></div>
+        </div>
       </div>
+    </div>
 
-      <!-- Right: live RSVP list -->
+  </div><!-- /pub-game -->
+
+  <!-- ══ TAB: Standings ═════════════════════════════ -->
+  <div id="pub-standings" class="pub-panel" style="display:none">
+    <div class="section">
+      <div class="sec-hdr">
+        <div class="sec-title">🏆 Season Standings</div>
+        <div class="sec-sub">Points accumulate each game — win bonus, KO bonus, and place bonus included</div>
+      </div>
       <div class="card">
-        <div id="rsvp-list-wrap"><div class="loading"><div class="spin"></div> Loading RSVPs…</div></div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- ── Season Standings ───────────────────────────── -->
-  <div class="section" id="standings">
-    <div class="sec-hdr">
-      <div class="sec-title">🏆 Season Standings</div>
-      <div class="sec-sub">Points accumulate each game — win bonus, KO bonus, and place bonus included</div>
-    </div>
-    <div class="card">
-      <div class="standings-bar">
-        <button class="sort-btn on" onclick="setSort('pts',this)">Points</button>
-        <button class="sort-btn" onclick="setSort('wins',this)">Wins</button>
-        <button class="sort-btn" onclick="setSort('games',this)">Games</button>
-        <button class="sort-btn" onclick="setSort('net',this)">Net $</button>
-      </div>
-      <div class="standings-wrap">
-        <table class="standings-table">
-          <thead>
-            <tr>
-              <th style="width:44px">#</th>
-              <th>Player</th>
-              <th class="r">Points</th>
-              <th class="r st-col-games">Games</th>
-              <th class="r">Wins</th>
-              <th class="r st-col-in">$ In</th>
-              <th class="r st-col-won">$ Won</th>
-              <th class="r st-col-net">Net</th>
-            </tr>
-          </thead>
-          <tbody id="standings-body">
-            <tr><td colspan="8"><div class="loading"><div class="spin"></div> Loading standings…</div></td></tr>
-          </tbody>
-        </table>
+        <div class="standings-bar" style="margin-bottom:16px">
+          <button class="sort-btn on" onclick="setSort('pts',this)">Points</button>
+          <button class="sort-btn" onclick="setSort('wins',this)">Wins</button>
+          <button class="sort-btn" onclick="setSort('games',this)">Games</button>
+          <button class="sort-btn" onclick="setSort('net',this)">Net $</button>
+        </div>
+        <div id="standings-body"><div class="loading"><div class="spin"></div> Loading standings…</div></div>
       </div>
     </div>
-  </div>
+  </div><!-- /pub-standings -->
 
-  <!-- ── Tournament Structure ──────────────────────── -->
-  <div class="section" id="structure">
-    <div class="sec-hdr">
-      <div class="sec-title">📋 Tournament Structure</div>
-      <div class="sec-sub">Blind levels and timing — structure may vary for special events</div>
+  <!-- ══ TAB: History ═══════════════════════════════ -->
+  <div id="pub-history" class="pub-panel" style="display:none">
+    <div class="section">
+      <div class="sec-hdr">
+        <div class="sec-title">📋 Game History</div>
+        <div class="sec-sub">Results from every game this season</div>
+      </div>
+      <div class="card">
+        <div id="history-body"><div class="loading"><div class="spin"></div> Loading history…</div></div>
+      </div>
     </div>
-    <div class="card">
-      <div id="structure-wrap"><div class="loading"><div class="spin"></div> Loading structure…</div></div>
-    </div>
-  </div>
+  </div><!-- /pub-history -->
 
-  <!-- ── Rules ─────────────────────────────────────── -->
-  <div class="section" id="rules">
-    <div class="sec-hdr">
-      <div class="sec-title">📜 House Rules</div>
-      <div class="sec-sub">Standard Texas Hold'em applies — these are the house-specific rules</div>
+  <!-- ══ TAB: Structure ═════════════════════════════ -->
+  <div id="pub-structure" class="pub-panel" style="display:none">
+    <div class="section" id="structure">
+      <div class="sec-hdr">
+        <div class="sec-title">📐 Tournament Structure</div>
+        <div class="sec-sub">Blind levels and timing — structure may vary for special events</div>
+      </div>
+      <div class="card">
+        <div id="structure-wrap"><div class="loading"><div class="spin"></div> Loading structure…</div></div>
+      </div>
     </div>
-    <div class="card">
-      <ul class="rules-list" id="rules-list"></ul>
+    <div class="section" id="rules">
+      <div class="sec-hdr">
+        <div class="sec-title">📜 House Rules</div>
+        <div class="sec-sub">Standard Texas Hold'em applies — these are the house-specific rules</div>
+      </div>
+      <div class="card">
+        <ul class="rules-list" id="rules-list"></ul>
+      </div>
     </div>
-  </div>
+  </div><!-- /pub-structure -->
 
 </main>
 
@@ -411,6 +431,7 @@ var seasonData  = null;
 var rsvpData    = { responses: [] };
 var nextGame    = null;
 var liveState   = null;
+var highHand    = null;
 var players     = [];
 var standings   = [];
 var sortKey     = 'pts';
@@ -438,13 +459,14 @@ var LOGO_URL = PHOTOS_URL + '/logo.jpg';
   img.onerror = function() { img.style.display = 'none'; };
 });
 
-Promise.all([fetchSeason(), fetchNextGame(), fetchRsvp(), fetchLive()]).then(function() {
+Promise.all([fetchSeason(), fetchNextGame(), fetchRsvp(), fetchLive(), fetchHighHand()]).then(function() {
   renderHeroStats();
   renderLiveGame();
   renderNextGame();
   renderRsvpList();
   renderStandings();
   renderStructure();
+  renderHighHand();
   populateRsvpSelect();
 });
 
@@ -475,6 +497,21 @@ function fetchLive() {
   return fetch(CF_URL + '/state', { cache: 'no-store' })
     .then(function(r){ return r.json(); })
     .then(function(d){ liveState = d; }).catch(function(){});
+}
+function fetchHighHand() {
+  return fetch(CF_URL + '/high-hand', { cache: 'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ highHand = d && d.hand ? d : null; }).catch(function(){});
+}
+function renderHighHand() {
+  var sec = document.getElementById('high-hand-sec');
+  if (!sec) return;
+  if (!highHand || !highHand.hand) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  var handEl   = document.getElementById('hh-hand');
+  var playerEl = document.getElementById('hh-player');
+  if (handEl)   handEl.textContent   = highHand.hand;
+  if (playerEl) playerEl.textContent = highHand.player ? '— ' + highHand.player : '';
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -732,6 +769,54 @@ function renderRsvpList() {
 // ═══════════════════════════════════════════════════════════
 //  Standings
 // ═══════════════════════════════════════════════════════════
+function showPubTab(name, btn) {
+  ['game','standings','history','structure'].forEach(function(t) {
+    var el = document.getElementById('pub-'+t);
+    if (el) el.style.display = t === name ? '' : 'none';
+  });
+  document.querySelectorAll('.pub-tab').forEach(function(b) {
+    b.classList.remove('on');
+  });
+  if (btn) btn.classList.add('on');
+  if (name === 'history') renderGameHistory();
+}
+
+function renderGameHistory() {
+  var el = document.getElementById('history-body');
+  if (!el) return;
+  var season = seasonData && seasonData.season;
+  if (!season || !season.games || !season.games.length) {
+    el.innerHTML = '<div class="empty">No games played yet this season</div>';
+    return;
+  }
+  el.innerHTML = season.games.slice().reverse().map(function(g) {
+    var total   = g.results ? g.results.length : 0;
+    var bi      = g.buyIn || 0;
+    var dateStr = g.date ? g.date : (g.week ? 'Week ' + g.week : '');
+    var rows = (g.results || []).slice().sort(function(a,b){ return b.pos - a.pos; }).map(function(r) {
+      var extras = [];
+      if ((r.rebuys||0) > 0)        extras.push(r.rebuys + ' rebuy' + (r.rebuys > 1 ? 's' : ''));
+      if ((r.fullAddons||0) > 0)    extras.push(r.fullAddons + ' full add-on' + (r.fullAddons > 1 ? 's' : ''));
+      if ((r.partialAddons||0) > 0) extras.push(r.partialAddons + ' partial' + (r.partialAddons > 1 ? 's' : ''));
+      var extrasTag = extras.length
+        ? '<span style="font-size:10px;color:var(--orange);margin-left:5px">' + extras.join(', ') + '</span>'
+        : '';
+      var place = total - r.pos + 1;
+      return '<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:5px 0;border-bottom:1px solid var(--border)">' +
+        '<span style="color:var(--text2)"><span style="color:var(--text3);font-size:11px;min-width:20px;display:inline-block">#' + place + '</span> <span style="color:var(--text)">' + esc(r.name) + '</span>' + extrasTag + '</span>' +
+        '<span style="color:var(--blue);font-weight:700">' + r.pts + ' pts</span>' +
+      '</div>';
+    }).join('');
+    return '<div style="margin-bottom:20px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid var(--border2)">' +
+        '<span style="font-size:15px;font-weight:700;color:var(--text)">Game #' + g.num + (dateStr ? ' — ' + dateStr : '') + '</span>' +
+        '<span style="font-size:12px;color:var(--text3)">' + total + ' players · $' + bi + ' buy-in</span>' +
+      '</div>' +
+      rows +
+    '</div>';
+  }).join('');
+}
+
 function setSort(key, btn) {
   sortKey = key;
   document.querySelectorAll('.sort-btn').forEach(function(b){ b.classList.remove('on'); });
@@ -740,17 +825,17 @@ function setSort(key, btn) {
 }
 
 function renderStandings() {
-  var tb = document.getElementById('standings-body');
+  var el = document.getElementById('standings-body');
   if (!standings.length) {
-    tb.innerHTML = '<tr><td colspan="8"><div class="empty">No games played yet this season</div></td></tr>';
+    el.innerHTML = '<div class="empty">No games played yet this season</div>';
     return;
   }
   if (!viewerUnlocked) {
-    tb.innerHTML = '<tr><td colspan="8"><div class="locked-section">' +
+    el.innerHTML = '<div class="locked-section">' +
       '<div class="lock-icon">🔒</div>' +
-      '<p>Season standings are private.<br>Verify your number to view.</p>' +
-      '<button class="btn btn-green btn-sm" onclick="requireViewerAuth(function(){})">Unlock</button>' +
-      '</div></td></tr>';
+      '<p>Season standings are private.<br>Enter the viewer password to view.</p>' +
+      '<button class="btn btn-green btn-sm" onclick="requireViewerAuth(renderStandings)">Unlock</button>' +
+      '</div>';
     return;
   }
   var sorted = standings.slice().sort(function(a,b){
@@ -759,24 +844,26 @@ function renderStandings() {
     if (sortKey === 'net')   return (b.moneyWon - b.moneyIn) - (a.moneyWon - a.moneyIn);
     return b.pts - a.pts;
   });
-  tb.innerHTML = sorted.map(function(p, i) {
+  el.innerHTML = sorted.map(function(p, i) {
     var rank = i + 1;
-    var rc   = rank === 1 ? 'r1' : rank === 2 ? 'r2' : rank === 3 ? 'r3' : '';
-    var sym  = rank === 1 ? '🏆' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+    var sym  = rank === 1 ? '🏆' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank + '.';
+    var col  = rank === 1 ? 'var(--gold)' : rank === 2 ? '#b0b8c8' : rank === 3 ? '#c87941' : 'var(--text3)';
     var net  = p.moneyWon - p.moneyIn;
-    var netc = net > 0 ? 'earn-pos' : net < 0 ? 'earn-neg' : 'earn-zero';
-    var earn = '<td class="st-num earn-val earn-neg st-col-in">$'+p.moneyIn+'</td>' +
-      '<td class="st-num earn-val earn-pos st-col-won">$'+p.moneyWon+'</td>' +
-      '<td class="st-num earn-val '+netc+' st-col-net">'+(net>=0?'+':'')+net+'</td>';
-
-    return '<tr>' +
-      '<td class="rank-cell '+rc+'">'+sym+'</td>' +
-      '<td><div class="player-cell">' + playerAvatar(p.name, 36) + '<span class="st-name">'+esc(p.name)+'</span></div></td>' +
-      '<td class="st-pts">'+p.pts+'</td>' +
-      '<td class="st-num st-col-games">'+p.games+'</td>' +
-      '<td class="st-num">'+p.wins+'</td>' +
-      earn +
-      '</tr>';
+    var netc = net > 0 ? '#22c55e' : net < 0 ? 'var(--red)' : 'var(--text3)';
+    var tags = '';
+    if (p.wins > 0)     tags += '<span class="s-tag" style="color:var(--gold)">' + p.wins + ' win' + (p.wins>1?'s':'') + '</span>';
+    if (p.games > 0)    tags += '<span class="s-tag" style="color:var(--text3)">' + p.games + ' game' + (p.games>1?'s':'') + '</span>';
+    if (p.moneyWon > 0) tags += '<span class="s-tag" style="color:var(--green)">$' + p.moneyWon + ' won</span>';
+    if (net !== 0)      tags += '<span class="s-tag" style="color:' + netc + '">Net ' + (net >= 0 ? '+' : '') + net + '</span>';
+    return '<div class="s-row">' +
+      '<span class="s-rank" style="color:' + col + '">' + sym + '</span>' +
+      playerAvatar(p.name, 38) +
+      '<div class="s-info" style="margin-left:10px">' +
+        '<div class="s-name">' + esc(p.name) + '</div>' +
+        (tags ? '<div class="s-tags">' + tags + '</div>' : '') +
+      '</div>' +
+      '<div class="s-pts-wrap"><span class="s-pts">' + p.pts + '</span><span class="s-pts-lbl">pts</span></div>' +
+    '</div>';
   }).join('');
 }
 
@@ -960,12 +1047,32 @@ function toast(msg) {
   _toastT = setTimeout(function(){ el.classList.remove('on'); }, 3000);
 }
 
-// Auto-refresh every 30s
-setInterval(function() {
-  Promise.all([fetchSeason(), fetchNextGame(), fetchRsvp(), fetchLive()]).then(function() {
-    renderHeroStats(); renderLiveGame(); renderNextGame(); renderRsvpList(); renderStandings(); renderStructure();
+function refreshAll() {
+  Promise.all([fetchSeason(), fetchNextGame(), fetchRsvp(), fetchLive(), fetchHighHand()]).then(function() {
+    renderHeroStats(); renderLiveGame(); renderNextGame(); renderRsvpList(); renderStandings(); renderStructure(); renderHighHand();
   });
-}, 30000);
+}
+
+// Auto-refresh every 30s
+var _refreshInterval = setInterval(refreshAll, 30000);
+
+// Refresh immediately whenever the page becomes visible again (phone wakes, tab switch back)
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible') {
+    clearInterval(_refreshInterval);
+    _refreshInterval = setInterval(refreshAll, 30000);
+    refreshAll();
+  }
+});
+
+// iOS BFCache restore (back/forward navigation or app resume)
+window.addEventListener('pageshow', function(e) {
+  if (e.persisted) refreshAll();
+});
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js');
+}
 </script>
 </body>
 </html>

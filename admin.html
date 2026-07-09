@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Poker Tournament Manager</title>
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="admin-manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
 <link rel="apple-touch-icon" href="icon.svg">
 <meta name="theme-color" content="#4f7cff">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -354,6 +355,28 @@ h2{font-size:17px;font-weight:600}
           <a href="public.html" target="_blank" style="font-size:12px;color:var(--text3)">&#8599; View public page</a>
         </div>
       </div>
+      <div class="card mt12">
+        <div class="between" style="margin-bottom:14px">
+          <div>
+            <h2 style="margin-bottom:2px">&#127183; High Hand</h2>
+            <div style="font-size:12px;color:var(--text3)">Shown on the public page when set</div>
+          </div>
+          <div class="row">
+            <button class="sm danger" onclick="clearHighHand()">Clear</button>
+            <button class="sm primary" onclick="pushHighHand()">&#8679; Push</button>
+          </div>
+        </div>
+        <div class="g2" style="gap:12px">
+          <div>
+            <div class="lbl">Hand</div>
+            <input type="text" id="hh-hand-inp" placeholder="e.g. Royal Flush" style="font-size:13px">
+          </div>
+          <div>
+            <div class="lbl">Player</div>
+            <input type="text" id="hh-player-inp" placeholder="e.g. Steve" style="font-size:13px">
+          </div>
+        </div>
+      </div>
     </div>
 
     <div id="panel-game" style="display:none">
@@ -680,7 +703,7 @@ function applyRole(role) {
   // Always apply floor button visibility based on role
   var floorCtls = document.getElementById('f-ctrl-row');
   if (floorCtls) floorCtls.style.display = role === 'viewer' ? 'none' : '';
-  if (role === 'admin') { loadNextGameFields(); }
+  if (role === 'admin') { loadNextGameFields(); loadHighHand(); }
   syncPullOnLogin();
 }
 function syncPullOnLogin() {
@@ -965,6 +988,35 @@ function clearNextGame() {
   });
   setNgType('standard');
   pushNextGame();
+}
+function pushHighHand() {
+  var url = getCfUrl(), key = getCfKey();
+  if (!url || !key) { toast('No Worker URL/key set'); return; }
+  var hand   = (document.getElementById('hh-hand-inp')  ||{}).value.trim();
+  var player = (document.getElementById('hh-player-inp')||{}).value.trim();
+  fetch(url + '/high-hand', { method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({_key:key, hand:hand, player:player}) })
+    .then(function(r){ toast(r.ok ? '✓ High hand pushed' : '✗ Push failed'); })
+    .catch(function(){ toast('✗ Network error'); });
+}
+function clearHighHand() {
+  var url = getCfUrl(), key = getCfKey();
+  if (!url || !key) { toast('No Worker URL/key set'); return; }
+  var hEl = document.getElementById('hh-hand-inp'), pEl = document.getElementById('hh-player-inp');
+  if (hEl) hEl.value = ''; if (pEl) pEl.value = '';
+  fetch(url + '/high-hand', { method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({_key:key, hand:'', player:''}) })
+    .then(function(r){ toast(r.ok ? '✓ High hand cleared' : '✗ Failed'); })
+    .catch(function(){ toast('✗ Network error'); });
+}
+function loadHighHand() {
+  var url = getCfUrl(); if (!url) return;
+  fetch(url + '/high-hand', { cache:'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d) return;
+      var hEl = document.getElementById('hh-hand-inp'), pEl = document.getElementById('hh-player-inp');
+      if (hEl) hEl.value = d.hand   || '';
+      if (pEl) pEl.value = d.player || '';
+    }).catch(function(){});
 }
 function clearRsvp() {
   if (!confirm('Clear all RSVPs from the public page?')) return;
@@ -2272,9 +2324,8 @@ function renderFloorStandings() {
     var winnings = seasonWinnings[p.name] || 0;
     var koMoney  = seasonKoMoney[p.name]  || 0;
     var moneyLine = '';
-    if (money > 0 || winnings > 0 || koMoney > 0) {
+    if (winnings > 0 || koMoney > 0) {
       var parts = [];
-      if (money    > 0) parts.push('<span style="color:#8ab0d0">$'+money+' in</span>');
       if (winnings > 0) parts.push('<span style="color:#6dbe8a">$'+winnings+' won</span>');
       if (koMoney  > 0) parts.push('<span style="color:#f97316">$'+koMoney+' KOs</span>');
       moneyLine = '<div style="font-size:11px;display:flex;gap:8px;margin-top:2px;flex-wrap:wrap">'+parts.join('')+'</div>';
