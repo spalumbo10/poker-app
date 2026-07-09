@@ -1258,7 +1258,8 @@ function startGame() {
   S.timer.lvlIdx=0; S.timer.secsLeft=S.levels[0].dur*60; S.timer.running=false;
   setTimerBtn('&#9654; Start','&#9654;');
   refreshGameTab(); refreshTimerDisp(); refreshBlindsDisp(); renderLevels();
-  updateSeasonStatus(); saveData();
+  updateSeasonStatus(); renderFloorStandings(); refreshFloorPlayBtn(); renderFloorPot(); renderFloorBuyIns();
+  saveData();
   toast('Game #'+S.game.num+' started!'); pushLiveState(); syncPush(true);
 }
 
@@ -1616,7 +1617,9 @@ function abandonGame() {
   if(!confirm('Abandon this game? All bust data will be lost.')) return;
   stopTimer(); S.game=null;
   selectedPlayers = S.players.map(function(p){ return p.name; });
-  refreshGameTab(); updateSeasonStatus(); saveData(); pushLiveState(); syncPush(true);
+  refreshGameTab(); updateSeasonStatus(); renderSeason(); renderFloorStandings();
+  refreshFloorPlayBtn(); renderFloorPot(); renderFloorBuyIns();
+  saveData(); pushLiveState(); syncPush(true);
 }
 
 // ─── Blind levels ─────────────────────────────────────────────────────────────
