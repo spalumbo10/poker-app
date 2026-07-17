@@ -1200,18 +1200,20 @@ function selFromRsvp() {
           // Use the canonical roster name
           if (selectedPlayers.indexOf(match.name) < 0) { selectedPlayers.push(match.name); checked++; }
         } else {
-          // Not on roster — add as guest
-          // Normalise guest label: if name already says "Guest of X" keep it, otherwise prefix
-          var guestName = /^guest of /i.test(name) ? name : 'Guest of ' + name;
-          // Find who they're a guest of and use their name if on roster
-          var hostMatch = name.match(/^guest of (.+)$/i);
-          if (hostMatch) {
-            var host = S.players.find(function(p) { return p.name.toLowerCase() === hostMatch[1].toLowerCase(); });
-            if (host) guestName = 'Guest of ' + host.name;
+          // Not on roster — if the RSVP name itself says "Guest of X", resolve the host name;
+          // otherwise add them as a new player with their actual name
+          var isGuest = /^guest of /i.test(name);
+          var addName = name;
+          if (isGuest) {
+            var hostMatch = name.match(/^guest of (.+)$/i);
+            if (hostMatch) {
+              var host = S.players.find(function(p) { return p.name.toLowerCase() === hostMatch[1].toLowerCase(); });
+              if (host) addName = 'Guest of ' + host.name;
+            }
           }
-          if (!S.players.some(function(p) { return p.name.toLowerCase() === guestName.toLowerCase(); }))
-            S.players.push({ id: Date.now() + added, name: guestName, photo: null });
-          if (selectedPlayers.indexOf(guestName) < 0) { selectedPlayers.push(guestName); added++; }
+          if (!S.players.some(function(p) { return p.name.toLowerCase() === addName.toLowerCase(); }))
+            S.players.push({ id: Date.now() + added, name: addName, photo: null });
+          if (selectedPlayers.indexOf(addName) < 0) { selectedPlayers.push(addName); added++; }
         }
       });
       renderSetupList(); renderRoster(); saveData();
@@ -1680,6 +1682,42 @@ function addPlayer() {
 function removeFromRoster(id) {
   S.players=S.players.filter(function(p){return p.id!==id;}); renderRoster(); saveData();
 }
+function startRename(id) {
+  var row = document.getElementById('rename-row-'+id);
+  if (row) { row.style.display = ''; document.getElementById('rename-inp-'+id).focus(); }
+}
+function cancelRename(id) {
+  var row = document.getElementById('rename-row-'+id);
+  if (row) row.style.display = 'none';
+}
+function commitRename(id) {
+  var inp = document.getElementById('rename-inp-'+id);
+  if (!inp) return;
+  var newName = inp.value.trim();
+  if (!newName) return;
+  var player = S.players.find(function(p){ return p.id === id; });
+  if (!player) return;
+  if (newName.toLowerCase() === player.name.toLowerCase()) { cancelRename(id); return; }
+  if (S.players.some(function(p){ return p.id !== id && p.name.toLowerCase() === newName.toLowerCase(); })) {
+    toast('A player with that name already exists'); return;
+  }
+  var oldName = player.name;
+  player.name = newName;
+  // Update selectedPlayers list
+  var si = selectedPlayers.indexOf(oldName);
+  if (si >= 0) selectedPlayers[si] = newName;
+  // Update season totals key
+  if (S.season.totals[oldName] !== undefined) {
+    S.season.totals[newName] = (S.season.totals[newName] || 0) + S.season.totals[oldName];
+    delete S.season.totals[oldName];
+  }
+  // Update game results
+  S.season.games.forEach(function(g) {
+    (g.results || []).forEach(function(r) { if (r.name === oldName) r.name = newName; });
+  });
+  renderRoster(); renderSetupList(); renderSeason(); saveData(); syncPush(true);
+  toast('Renamed to ' + newName);
+}
 function clearRoster() {
   if(!confirm('Remove all players from roster?')) return;
   S.players=[]; renderRoster(); saveData();
@@ -1728,11 +1766,21 @@ function renderRoster() {
     return '<div class="p-row" style="flex-wrap:wrap">'+av+
       '<span style="font-size:14px;font-weight:500;flex:1">'+esc(p.name)+'</span>'+
       photoBtn+
+      '<button class="sm" onclick="startRename('+p.id+')" title="Rename player" style="margin-right:4px">&#9998;</button>'+
       '<button class="danger sm" onclick="removeFromRoster('+p.id+')">&#10005;</button>'+
       '<div style="width:100%;margin-top:6px">'+
       '<input type="url" placeholder="Or paste photo URL" value="'+(p.photoUrl||'')+'" '+
       'style="width:100%;font-size:11px;padding:4px 8px" '+
       'oninput="setPhotoUrl('+p.id+', this.value)"></div>'+
+      '<div id="rename-row-'+p.id+'" style="display:none;width:100%;margin-top:8px;display:none">'+
+        '<div style="display:flex;gap:6px;align-items:center">'+
+          '<input type="text" id="rename-inp-'+p.id+'" value="'+esc(p.name)+'" '+
+            'style="flex:1;font-size:13px;padding:6px 10px" '+
+            'onkeydown="if(event.key===\'Enter\')commitRename('+p.id+');if(event.key===\'Escape\')cancelRename('+p.id+')">'+
+          '<button class="sm primary" onclick="commitRename('+p.id+')">Save</button>'+
+          '<button class="sm" onclick="cancelRename('+p.id+')">Cancel</button>'+
+        '</div>'+
+      '</div>'+
     '</div>';
   }).join('');
 }
