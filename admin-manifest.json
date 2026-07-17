@@ -1,8 +1,8 @@
 {
-  "name": "CB Poker League",
-  "short_name": "CB Poker",
-  "description": "Poker tournament standings, live game, and RSVP",
-  "start_url": "./index.html",
+  "name": "Poker Admin",
+  "short_name": "Poker Admin",
+  "description": "Poker tournament admin dashboard",
+  "start_url": "./admin.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0a0e1a",

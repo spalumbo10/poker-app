@@ -955,7 +955,7 @@ function applyCloudData(data) {
   if (!_hasFocusedInput('panel-setup')) refreshGameTab(); else { renderBustActive(); renderBustLog(); renderKoList(); renderBuyInList(); renderGamePot(); }
   renderSeason(); renderFloorStandings(); renderRoster();
   if (!blindsActive) { renderLevels(); refreshBlindsDisp(); }
-  updateSeasonStatus(); refreshTimerDisp(); refreshMultBtns(); renderFloorPot();
+  updateSeasonStatus(); refreshTimerDisp(); refreshMultBtns(); renderFloorPot(); renderFloorBuyIns();
 }
 
 function setNgType(type) {
@@ -2176,11 +2176,11 @@ function clearKoTotalOverride() {
 function renderFloorBuyIns() {
   var el = document.getElementById('f-buyin-body'); if (!el) return;
   var g = S.game;
-  if (!g || !g.buyIn) {
+  if (!g) {
     el.innerHTML = '<div style="font-size:13px;color:#3a5070;text-align:center">No active game</div>';
     return;
   }
-  var bi = g.buyIn;
+  var bi = g.buyIn || 0;
   var rows = [
     { label: 'Rebuy',            amt: bi },
     { label: 'Partial Add-on',   amt: bi },
