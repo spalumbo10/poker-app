@@ -610,6 +610,7 @@ var DEFAULTS = [
 var S = {
   levels: [], players: [],
   season: {games:[], totals:{}},
+  pastSeasons: [],
   game: null,
   timer: {running:false, secsLeft:0, lvlIdx:0},
   mult: 1,
@@ -626,18 +627,20 @@ function load() {
     var raw = localStorage.getItem('pkr4');
     if (raw) {
       var d = JSON.parse(raw);
-      if (d.levels)  S.levels  = d.levels;
-      if (d.players) S.players = d.players;
-      if (d.season)  S.season  = d.season;
-      if (d.game)    S.game    = d.game;
-      if (d.timer)   S.timer   = d.timer;
-      if (d.mult)    S.mult    = d.mult;
-      if (d.ui)      S.ui      = d.ui;
+      if (d.levels)      S.levels      = d.levels;
+      if (d.players)     S.players     = d.players;
+      if (d.season)      S.season      = d.season;
+      if (d.pastSeasons) S.pastSeasons = d.pastSeasons;
+      if (d.game)        S.game        = d.game;
+      if (d.timer)       S.timer       = d.timer;
+      if (d.mult)        S.mult        = d.mult;
+      if (d.ui)          S.ui          = d.ui;
     }
   } catch(e) {}
   if (!S.levels || !S.levels.length) S.levels = cloneDefaults();
-  if (!S.season)        S.season  = {games:[], totals:{}};
+  if (!S.season)        S.season      = {games:[], totals:{}};
   if (!S.season.totals) S.season.totals = {};
+  if (!S.pastSeasons)   S.pastSeasons = [];
   if (!S.players)       S.players = [];
   if (!S.timer)         S.timer   = {running:false, secsLeft:0, lvlIdx:0};
   if (!S.mult)          S.mult    = 1;
@@ -873,6 +876,7 @@ function syncPush(silent) {
     _key: key,
     syncedAt: Date.now(),
     season: S.season,
+    pastSeasons: S.pastSeasons || [],
     players: players,
     levels: S.levels,
     game: S.game || null,
@@ -901,7 +905,8 @@ function _hasFocusedInput(containerId) {
 
 function applyCloudData(data) {
   if (!data) return;
-  S.season = data.season || S.season;
+  S.season      = data.season      || S.season;
+  if (data.pastSeasons) S.pastSeasons = data.pastSeasons;
   var blindsActive = _hasFocusedInput('tab-blinds');
   if (!blindsActive && data.levels && data.levels.length) S.levels = data.levels;
   if (data.mult) S.mult = data.mult;
@@ -953,12 +958,15 @@ function applyCloudData(data) {
     S.timer.running = false;
     setTimerBtn('&#9654; Start','&#9654;');
   }
-  // Merge players
-  (data.players || []).forEach(function(cp) {
-    var local = S.players.find(function(p) { return p.id === cp.id || p.name === cp.name; });
-    if (local) { local.photoUrl = cp.photoUrl; }
-    else { S.players.push({ id: cp.id, name: cp.name, photo: null, photoUrl: cp.photoUrl || null }); }
-  });
+  // Replace players from cloud — cloud is authoritative (removals must propagate)
+  if (data.players) {
+    // Preserve any locally-held photo blobs that aren't in the cloud payload
+    var localPhotos = {};
+    S.players.forEach(function(p) { if (p.photo) localPhotos[p.id] = p.photo; });
+    S.players = data.players.map(function(cp) {
+      return { id: cp.id, name: cp.name, photoUrl: cp.photoUrl || null, photo: localPhotos[cp.id] || null };
+    });
+  }
   // Save without updating _lastLocalWrite — this is a cloud apply, not a local edit
   var _savedWrite = _lastLocalWrite;
   localStorage.setItem('pkr4', JSON.stringify(S));
@@ -1847,7 +1855,8 @@ function renderSeason() {
   var standings=getStandings();
   var weeksPlayed = S.season.games.reduce(function(set,g){ set[g.week||1]=true; return set; }, Object.create(null));
   var weekCount = Object.keys(weeksPlayed).length;
-  setText('s-badge', weekCount+' / 10 weeks');
+  var seasonNum = (S.pastSeasons || []).length + 1;
+  setText('s-badge', 'Season ' + seasonNum + ' · ' + weekCount+' / 10 weeks');
   var sel=document.getElementById('s-standings');
   if(sel) {
     // Build cumulative money spent, winnings, and KO money per player across all finalized games
@@ -1963,9 +1972,59 @@ function updateSeasonStatus() {
 }
 
 function resetSeason() {
-  if(!confirm('Reset the entire season? This cannot be undone.')) return;
-  S.season={games:[],totals:{}}; S.game=null; stopTimer();
-  refreshGameTab(); renderSeason(); renderFloorStandings(); updateSeasonStatus(); saveData(); toast('Season reset');
+  if (!S.season.games.length) {
+    if (!confirm('Reset the season? There are no games yet.')) return;
+    S.season = {games:[], totals:{}}; S.game = null; stopTimer();
+    refreshGameTab(); renderSeason(); renderFloorStandings(); updateSeasonStatus(); saveData(); syncPush(true); toast('Season reset');
+    return;
+  }
+  var seasonNum = (S.pastSeasons || []).length + 1;
+  var gameCount = S.season.games.length;
+  if (!confirm('Archive Season ' + seasonNum + ' (' + gameCount + ' game' + (gameCount !== 1 ? 's' : '') + ') and start Season ' + (seasonNum + 1) + '?\n\nThis will save the season to history and cannot be undone.')) return;
+  if (!S.pastSeasons) S.pastSeasons = [];
+  // Build rich per-player season stats for history
+  var psStandings = getStandings();
+  var villainMap = {};
+  S.season.games.forEach(function(g) {
+    (g.results || []).forEach(function(r) {
+      if (r.knockedOutBy) {
+        if (!villainMap[r.name]) villainMap[r.name] = {};
+        villainMap[r.name][r.knockedOutBy] = (villainMap[r.name][r.knockedOutBy] || 0) + 1;
+      }
+    });
+  });
+  var psPlayerStats = {};
+  psStandings.forEach(function(p, i) {
+    var koByCount = villainMap[p.name] || {};
+    var villain = null, villainCount = 0;
+    Object.keys(koByCount).forEach(function(k) {
+      if (koByCount[k] > villainCount) { villain = k; villainCount = koByCount[k]; }
+    });
+    var koPts = 0;
+    S.season.games.forEach(function(g) {
+      var r = (g.results || []).find(function(r) { return r.name === p.name; });
+      if (r) koPts += (r.koPts || 0);
+    });
+    psPlayerStats[p.name] = {
+      rank: i + 1,
+      pts: p.pts,
+      koPts: Math.round(koPts * 100) / 100,
+      winnings: _seasonWinnings[p.name] || 0,
+      koMoney: _seasonKoMoney[p.name] || 0,
+      villain: villain,
+      villainCount: villainCount
+    };
+  });
+  S.pastSeasons.push({
+    num: seasonNum,
+    year: new Date().getFullYear(),
+    games: S.season.games,
+    totals: S.season.totals,
+    playerStats: psPlayerStats
+  });
+  S.season = {games:[], totals:{}}; S.game = null; stopTimer();
+  refreshGameTab(); renderSeason(); renderFloorStandings(); updateSeasonStatus(); saveData(); syncPush(true);
+  toast('Season ' + seasonNum + ' archived! Starting Season ' + (seasonNum + 1));
 }
 
 function exportToClipboard() {

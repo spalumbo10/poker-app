@@ -817,36 +817,76 @@ function renderGameHistory() {
       '</div>';
     return;
   }
-  var season = seasonData && seasonData.season;
-  if (!season || !season.games || !season.games.length) {
-    el.innerHTML = '<div class="empty">No games played yet this season</div>';
-    return;
-  }
-  el.innerHTML = season.games.slice().reverse().map(function(g) {
-    var total   = g.results ? g.results.length : 0;
-    var dateStr = g.date ? g.date : (g.week ? 'Week ' + g.week : '');
-    var rows = (g.results || []).slice().sort(function(a,b){ return b.pos - a.pos; }).map(function(r) {
-      var extras = [];
-      if ((r.rebuys||0) > 0)        extras.push(r.rebuys + ' rebuy' + (r.rebuys > 1 ? 's' : ''));
-      if ((r.fullAddons||0) > 0)    extras.push(r.fullAddons + ' full add-on' + (r.fullAddons > 1 ? 's' : ''));
-      if ((r.partialAddons||0) > 0) extras.push(r.partialAddons + ' partial' + (r.partialAddons > 1 ? 's' : ''));
-      var extrasTag = extras.length
-        ? '<span style="font-size:10px;color:var(--orange);margin-left:5px">' + extras.join(', ') + '</span>'
-        : '';
-      var place = total - r.pos + 1;
-      return '<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:5px 0;border-bottom:1px solid var(--border)">' +
-        '<span style="color:var(--text2)"><span style="color:var(--text3);font-size:11px;min-width:20px;display:inline-block">#' + place + '</span> <span style="color:var(--text)">' + esc(r.name) + '</span>' + extrasTag + '</span>' +
-        '<span style="color:var(--blue);font-weight:700">' + r.pts + ' pts</span>' +
+
+  function renderSeasonGames(games) {
+    if (!games || !games.length) return '<div style="color:var(--text3);font-size:13px;padding:12px 0">No games recorded</div>';
+    return games.slice().reverse().map(function(g) {
+      var total   = g.results ? g.results.length : 0;
+      var dateStr = g.date ? g.date : (g.week ? 'Week ' + g.week : '');
+      var rows = (g.results || []).slice().sort(function(a,b){ return b.pos - a.pos; }).map(function(r) {
+        var extras = [];
+        if ((r.rebuys||0) > 0)        extras.push(r.rebuys + ' rebuy' + (r.rebuys > 1 ? 's' : ''));
+        if ((r.fullAddons||0) > 0)    extras.push(r.fullAddons + ' full add-on' + (r.fullAddons > 1 ? 's' : ''));
+        if ((r.partialAddons||0) > 0) extras.push(r.partialAddons + ' partial' + (r.partialAddons > 1 ? 's' : ''));
+        var extrasTag = extras.length
+          ? '<span style="font-size:10px;color:var(--orange);margin-left:5px">' + extras.join(', ') + '</span>'
+          : '';
+        var place = total - r.pos + 1;
+        var koBy = r.knockedOutBy ? '<span style="font-size:10px;color:var(--orange);margin-left:5px">← ' + esc(r.knockedOutBy) + '</span>' : '';
+        return '<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:5px 0;border-bottom:1px solid var(--border)">' +
+          '<span style="color:var(--text2)"><span style="color:var(--text3);font-size:11px;min-width:20px;display:inline-block">#' + place + '</span> <span style="color:var(--text)">' + esc(r.name) + '</span>' + extrasTag + koBy + '</span>' +
+          '<span style="color:var(--blue);font-weight:700">' + r.pts + ' pts</span>' +
+        '</div>';
+      }).join('');
+      return '<div style="margin-bottom:20px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid var(--border2)">' +
+          '<span style="font-size:15px;font-weight:700;color:var(--text)">Game #' + g.num + (dateStr ? ' — ' + dateStr : '') + '</span>' +
+          '<span style="font-size:12px;color:var(--text3)">' + total + ' players</span>' +
+        '</div>' +
+        rows +
       '</div>';
     }).join('');
-    return '<div style="margin-bottom:20px">' +
-      '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid var(--border2)">' +
-        '<span style="font-size:15px;font-weight:700;color:var(--text)">Game #' + g.num + (dateStr ? ' — ' + dateStr : '') + '</span>' +
-        '<span style="font-size:12px;color:var(--text3)">' + total + ' players</span>' +
-      '</div>' +
-      rows +
+  }
+
+  var html = '';
+  var season = seasonData && seasonData.season;
+  var pastSeasons = (seasonData && seasonData.pastSeasons) || [];
+  var currentSeasonNum = pastSeasons.length + 1;
+
+  // Current season
+  if (season && season.games && season.games.length) {
+    html += '<div style="margin-bottom:32px">' +
+      '<div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--blue);margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid var(--border2)">Season ' + currentSeasonNum + ' — Current</div>' +
+      renderSeasonGames(season.games) +
     '</div>';
-  }).join('');
+  } else {
+    html += '<div style="color:var(--text3);font-size:13px;padding:0 0 24px">No games played yet this season</div>';
+  }
+
+  // Past seasons — most recent first
+  if (pastSeasons.length) {
+    pastSeasons.slice().reverse().forEach(function(ps) {
+      var winnersMap = {};
+      (ps.games || []).forEach(function(g) {
+        var results = g.results || [];
+        var winner = results.find(function(r){ return r.pos === results.length; });
+        if (winner) winnersMap[winner.name] = (winnersMap[winner.name] || 0) + 1;
+      });
+      var champ = Object.keys(winnersMap).sort(function(a,b){ return winnersMap[b]-winnersMap[a]; })[0];
+      var champStr = champ ? ' · 🏆 ' + champ : '';
+      html += '<div style="margin-bottom:32px">' +
+        '<details>' +
+          '<summary style="cursor:pointer;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);padding-bottom:8px;border-bottom:1px solid var(--border);list-style:none;display:flex;justify-content:space-between;align-items:center">' +
+            '<span>Season ' + ps.num + (ps.year ? ' (' + ps.year + ')' : '') + champStr + '</span>' +
+            '<span style="font-size:11px;font-weight:400;color:var(--text3)">' + (ps.games||[]).length + ' games ▾</span>' +
+          '</summary>' +
+          '<div style="margin-top:16px">' + renderSeasonGames(ps.games) + '</div>' +
+        '</details>' +
+      '</div>';
+    });
+  }
+
+  el.innerHTML = html || '<div class="empty">No game history yet</div>';
 }
 
 function closePlayerModal() {
@@ -904,15 +944,36 @@ function showPlayerStats(name) {
   });
   var villainVal = villain ? villain + (villainCount > 1 ? ' (' + villainCount + 'x)' : '') : '—';
 
+  // Past season finish positions
+  var pastSeasons = (seasonData && seasonData.pastSeasons) || [];
+  var seasonHistory = [];
+  pastSeasons.forEach(function(ps) {
+    if (ps.playerStats && ps.playerStats[name]) {
+      var st = ps.playerStats[name];
+      var total = Object.keys(ps.playerStats).length;
+      seasonHistory.push({ num: ps.num, year: ps.year, rank: st.rank, total: total,
+        pts: st.pts, koPts: st.koPts, winnings: st.winnings, koMoney: st.koMoney,
+        villain: st.villain, villainCount: st.villainCount });
+    } else if (ps.totals) {
+      var sorted = Object.keys(ps.totals).sort(function(a,b){ return (ps.totals[b]||0)-(ps.totals[a]||0); });
+      var idx = sorted.indexOf(name);
+      if (idx >= 0) seasonHistory.push({ num: ps.num, year: ps.year, rank: idx+1, total: sorted.length, pts: ps.totals[name] });
+    }
+  });
+  var bestSeasonRank = seasonHistory.length
+    ? Math.min.apply(null, seasonHistory.map(function(s){ return s.rank; }))
+    : null;
+
   var tiles = [
     { val: totalGames,              lbl: 'Games Played' },
     { val: totalWins,               lbl: 'Wins' },
-    { val: typeof bestFinish === 'number' ? ordinal(bestFinish) : '—', lbl: 'Best Finish' },
+    { val: typeof bestFinish === 'number' ? ordinal(bestFinish) : '—', lbl: 'Best Game Finish' },
     { val: avgFinish,               lbl: 'Avg Finish' },
     { val: totalKos,                lbl: 'Total KOs' },
     { val: avgKos,                  lbl: 'Avg KOs / Game' },
     { val: totalRebuys,             lbl: 'Total Rebuys' },
     { val: pts,                     lbl: 'Season Points' },
+    { val: bestSeasonRank ? ordinal(bestSeasonRank) : '—', lbl: 'Best Season Finish' },
   ];
 
   var standing = standings.findIndex(function(p){ return p.name === name; });
@@ -952,9 +1013,30 @@ function showPlayerStats(name) {
     '</div>';
   }).join('');
 
-  document.getElementById('pm-games').innerHTML = histRows
-    ? '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">Game Log</div>' + histRows
+  var seasonHistHTML = seasonHistory.length
+    ? '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px;margin-top:12px">Season History</div>' +
+      seasonHistory.map(function(s) {
+        var details = [];
+        if (s.pts != null)      details.push(s.pts + ' pts');
+        if (s.koPts)            details.push(s.koPts + ' KO pts');
+        if (s.winnings)         details.push('<span style="color:#6dbe8a">$' + s.winnings + ' won</span>');
+        if (s.koMoney)          details.push('<span style="color:#f97316">$' + s.koMoney + ' KOs</span>');
+        if (s.villain)          details.push('<span style="color:#f97316">☠ ' + esc(s.villain) + (s.villainCount > 1 ? ' (' + s.villainCount + 'x)' : '') + '</span>');
+        return '<div style="padding:8px 0;border-bottom:1px solid var(--border)">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px">' +
+            '<span style="color:var(--text2);font-weight:600">Season ' + s.num + (s.year ? ' (' + s.year + ')' : '') + '</span>' +
+            '<span style="color:var(--text3)">' + ordinal(s.rank) + ' of ' + s.total + '</span>' +
+          '</div>' +
+          (details.length ? '<div style="font-size:11px;color:var(--text3);margin-top:3px;display:flex;flex-wrap:wrap;gap:8px">' + details.join('') + '</div>' : '') +
+        '</div>';
+      }).join('')
     : '';
+
+  document.getElementById('pm-games').innerHTML =
+    (histRows
+      ? '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">Game Log</div>' + histRows
+      : '') +
+    seasonHistHTML;
 
   document.getElementById('player-modal').style.display = '';
 }
