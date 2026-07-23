@@ -1011,16 +1011,16 @@ function showPlayerStats(name) {
 
   var tiles = [
     { val: seasonsPlayed,           lbl: 'Seasons Played' },
-    { val: seasonWins,              lbl: 'Season Wins' },
     { val: totalGames,              lbl: 'Games This Season' },
-    { val: totalWins,               lbl: 'Wins' },
+    { val: bestSeasonRank ? ordinal(bestSeasonRank) : '—', lbl: 'Best Season Finish' },
+    { val: seasonWins,              lbl: 'Season Wins' },
+    { val: totalWins,               lbl: 'Game Wins' },
     { val: typeof bestFinish === 'number' ? ordinal(bestFinish) : '—', lbl: 'Best Game Finish' },
     { val: avgFinish,               lbl: 'Avg Finish' },
     { val: totalKos,                lbl: 'Total KOs' },
     { val: avgKos,                  lbl: 'Avg KOs / Game' },
     { val: totalRebuys,             lbl: 'Total Rebuys' },
     { val: pts,                     lbl: 'Season Points' },
-    { val: bestSeasonRank ? ordinal(bestSeasonRank) : '—', lbl: 'Best Season Finish' },
   ];
 
   var standing = standings.findIndex(function(p){ return p.name === name; });
