@@ -1006,8 +1006,13 @@ function showPlayerStats(name) {
     ? Math.min.apply(null, seasonHistory.map(function(s){ return s.rank; }))
     : null;
 
+  var seasonsPlayed = seasonHistory.length + (totalGames > 0 ? 1 : 0);
+  var seasonWins = seasonHistory.filter(function(s){ return s.rank === 1; }).length;
+
   var tiles = [
-    { val: totalGames,              lbl: 'Games Played' },
+    { val: seasonsPlayed,           lbl: 'Seasons Played' },
+    { val: seasonWins,              lbl: 'Season Wins' },
+    { val: totalGames,              lbl: 'Games This Season' },
     { val: totalWins,               lbl: 'Wins' },
     { val: typeof bestFinish === 'number' ? ordinal(bestFinish) : '—', lbl: 'Best Game Finish' },
     { val: avgFinish,               lbl: 'Avg Finish' },
@@ -1059,7 +1064,7 @@ function showPlayerStats(name) {
     ? '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px;margin-top:12px">Season History</div>' +
       seasonHistory.map(function(s) {
         var details = [];
-        if (s.pts != null)      details.push(s.pts + ' pts');
+        if (s.pts != null)      details.push(s.pts + ' pts ');
         if (s.koPts)            details.push(s.koPts + ' KO pts');
         if (s.winnings)         details.push('<span style="color:#6dbe8a">$' + s.winnings + ' won</span>');
         if (s.koMoney)          details.push('<span style="color:#f97316">$' + s.koMoney + ' KOs</span>');
