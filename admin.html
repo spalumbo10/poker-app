@@ -1680,7 +1680,7 @@ function addPlayer() {
   inp.value=''; renderRoster(); saveData();
 }
 function removeFromRoster(id) {
-  S.players=S.players.filter(function(p){return p.id!==id;}); renderRoster(); saveData();
+  S.players=S.players.filter(function(p){return p.id!==id;}); renderRoster(); renderSetupList(); saveData(); syncPush(true);
 }
 function startRename(id) {
   var row = document.getElementById('rename-row-'+id);
