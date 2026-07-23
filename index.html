@@ -892,6 +892,18 @@ function showPlayerStats(name) {
     return n + (s[(v-20)%10] || s[v] || s[0]);
   };
 
+  // Compute villain — who has knocked this player out the most
+  var koByCount = {};
+  games.forEach(function(g) {
+    var r = (g.results || []).find(function(r) { return r.name === name; });
+    if (r && r.knockedOutBy) koByCount[r.knockedOutBy] = (koByCount[r.knockedOutBy] || 0) + 1;
+  });
+  var villain = null, villainCount = 0;
+  Object.keys(koByCount).forEach(function(n) {
+    if (koByCount[n] > villainCount) { villain = n; villainCount = koByCount[n]; }
+  });
+  var villainVal = villain ? villain + (villainCount > 1 ? ' (' + villainCount + 'x)' : '') : '—';
+
   var tiles = [
     { val: totalGames,              lbl: 'Games Played' },
     { val: totalWins,               lbl: 'Wins' },
@@ -909,7 +921,14 @@ function showPlayerStats(name) {
   document.getElementById('pm-avatar').innerHTML = playerAvatar(name, 48);
   document.getElementById('pm-name').textContent = name;
   document.getElementById('pm-sub').textContent  = rank ? 'Ranked #' + rank + ' this season' : '';
-  document.getElementById('pm-stats').innerHTML  = tiles.map(function(t) {
+  var villainHTML = villain
+    ? '<div class="pm-tile" style="grid-column:span 2;background:rgba(249,115,22,.08);border-color:rgba(249,115,22,.3)">' +
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--orange);margin-bottom:4px">☠ Villain</div>' +
+        '<div style="font-size:18px;font-weight:800;color:var(--text)">' + esc(villainVal) + '</div>' +
+        '<div style="font-size:10px;color:var(--text3);margin-top:2px">most eliminations</div>' +
+      '</div>'
+    : '';
+  document.getElementById('pm-stats').innerHTML  = villainHTML + tiles.map(function(t) {
     return '<div class="pm-tile"><div class="pm-tile-val">' + t.val + '</div><div class="pm-tile-lbl">' + t.lbl + '</div></div>';
   }).join('');
 

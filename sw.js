@@ -1,4 +1,4 @@
-const CACHE = 'poker-v9';
+const CACHE = 'poker-v11';
 const FILES = ['./index.html', './admin.html', './manifest.json', './admin-manifest.json', './icon.svg', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', function(e) {
