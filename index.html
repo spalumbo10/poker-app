@@ -298,25 +298,7 @@ footer a:hover{color:var(--text)}
             <div id="next-game-info"><div class="loading"><div class="spin"></div> Loading game info…</div></div>
           </div>
           <div class="card" id="rsvp-form-card">
-            <div style="font-size:15px;font-weight:600;margin-bottom:14px">Add your RSVP</div>
-            <div class="rsvp-form-wrap">
-              <div class="rsvp-label">Your name</div>
-              <select id="rsvp-select" class="rsvp-name-input" onchange="onRsvpSelectChange()">
-                <option value="">— Select your name —</option>
-              </select>
-              <input type="text" id="rsvp-other" class="rsvp-name-input" placeholder="Type your name" style="display:none">
-              <div class="rsvp-btns">
-                <button class="btn btn-green" onclick="submitRsvp('in')">✓ I'm In</button>
-                <button class="btn btn-red" onclick="submitRsvp('out')">✗ Can't Make It</button>
-              </div>
-              <div id="rsvp-guest-toggle" style="display:none;margin-top:10px;text-align:center">
-                <a href="#" onclick="toggleGuestField();return false;" id="rsvp-guest-link" style="font-size:13px;color:var(--green);text-decoration:none">+ Bringing a guest?</a>
-              </div>
-              <div id="rsvp-guest-wrap" style="display:none;margin-top:10px">
-                <div class="rsvp-label" style="margin-top:6px">Guest name <span style="font-weight:400;opacity:.7">(optional)</span></div>
-                <input type="text" id="rsvp-guest-name" class="rsvp-name-input" placeholder="Leave blank for 'Guest of [your name]'">
-              </div>
-            </div>
+            <div id="rsvp-form-inner"></div>
           </div>
         </div>
         <div class="card">
@@ -487,11 +469,10 @@ Promise.all([fetchSeason(), fetchNextGame(), fetchRsvp(), fetchLive(), fetchHigh
   renderHeroStats();
   renderLiveGame();
   renderNextGame();
-  renderRsvpList();
+  renderRsvpList(); renderRsvpForm();
   renderStandings();
   renderStructure();
   renderHighHand();
-  populateRsvpSelect();
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -567,7 +548,7 @@ function submitPassword() {
       viewerUnlocked = true;
       sessionStorage.setItem('pkr-viewer', '1');
       closeAuthModal();
-      renderRsvpList();
+      renderRsvpList(); renderRsvpForm();
       renderStandings();
       renderGameHistory();
       renderLiveGame();
@@ -670,18 +651,6 @@ function renderNextGame() {
 // ═══════════════════════════════════════════════════════════
 //  RSVP
 // ═══════════════════════════════════════════════════════════
-function populateRsvpSelect() {
-  var sel = document.getElementById('rsvp-select');
-  var sorted = players.slice().sort(function(a,b){ return a.name.localeCompare(b.name); });
-  sorted.forEach(function(p){
-    var opt = document.createElement('option');
-    opt.value = p.name; opt.textContent = p.name;
-    sel.appendChild(opt);
-  });
-  var other = document.createElement('option');
-  other.value = '__other__'; other.textContent = 'Other (not on roster)…';
-  sel.appendChild(other);
-}
 function onRsvpSelectChange() {
   var sel = document.getElementById('rsvp-select');
   var inp = document.getElementById('rsvp-other');
@@ -705,12 +674,85 @@ function toggleGuestField() {
   if (!open) document.getElementById('rsvp-guest-name').focus();
 }
 
+var RSVP_LIMIT = 20;
+
+function renderRsvpForm() {
+  var el = document.getElementById('rsvp-form-inner');
+  if (!el) return;
+  var inCount = (rsvpData.responses || []).filter(function(r){ return r.status === 'in'; }).length;
+  var full = inCount >= RSVP_LIMIT;
+
+  if (!viewerUnlocked) {
+    el.innerHTML =
+      '<div style="text-align:center;padding:8px 0">' +
+        '<div style="font-size:28px;margin-bottom:8px">🔒</div>' +
+        '<div style="font-size:14px;font-weight:600;margin-bottom:6px">RSVP requires a password</div>' +
+        '<div style="font-size:12px;color:var(--text3);margin-bottom:14px">Use the password to unlock and submit your RSVP</div>' +
+        '<button class="btn btn-green" onclick="requireViewerAuth(renderRsvpForm)">Unlock to RSVP</button>' +
+      '</div>';
+    return;
+  }
+
+  if (full) {
+    el.innerHTML =
+      '<div style="text-align:center;padding:8px 0">' +
+        '<div style="font-size:28px;margin-bottom:8px">🚫</div>' +
+        '<div style="font-size:14px;font-weight:600;margin-bottom-6px">Game is full</div>' +
+        '<div style="font-size:12px;color:var(--text3);margin-top:6px">The ' + RSVP_LIMIT + '-player limit has been reached</div>' +
+      '</div>';
+    return;
+  }
+
+  el.innerHTML =
+    '<div style="font-size:15px;font-weight:600;margin-bottom:14px">Add your RSVP</div>' +
+    '<div class="rsvp-form-wrap">' +
+      '<div class="rsvp-label">Your name</div>' +
+      '<select id="rsvp-select" class="rsvp-name-input" onchange="onRsvpSelectChange()">' +
+        '<option value="">— Select your name —</option>' +
+      '</select>' +
+      '<input type="text" id="rsvp-other" class="rsvp-name-input" placeholder="Type your name" style="display:none">' +
+      '<div class="rsvp-btns">' +
+        '<button class="btn btn-green" onclick="submitRsvp(\'in\')">✓ I\'m In</button>' +
+        '<button class="btn btn-red" onclick="submitRsvp(\'out\')">✗ Can\'t Make It</button>' +
+      '</div>' +
+      '<div id="rsvp-guest-toggle" style="display:none;margin-top:10px;text-align:center">' +
+        '<a href="#" onclick="toggleGuestField();return false;" id="rsvp-guest-link" style="font-size:13px;color:var(--green);text-decoration:none">+ Bringing a guest?</a>' +
+      '</div>' +
+      '<div id="rsvp-guest-wrap" style="display:none;margin-top:10px">' +
+        '<div class="rsvp-label" style="margin-top:6px">Guest name <span style="font-weight:400;opacity:.7">(optional)</span></div>' +
+        '<input type="text" id="rsvp-guest-name" class="rsvp-name-input" placeholder="Leave blank for \'Guest of [your name]\'">' +
+      '</div>' +
+    '</div>';
+  populateRsvpSelect();
+}
+
+function populateRsvpSelect() {
+  var sel = document.getElementById('rsvp-select');
+  if (!sel) return;
+  var current = sel.value;
+  sel.innerHTML = '<option value="">— Select your name —</option>';
+  players.forEach(function(p) {
+    var opt = document.createElement('option');
+    opt.value = p.name; opt.textContent = p.name;
+    sel.appendChild(opt);
+  });
+  var other = document.createElement('option');
+  other.value = '__other__'; other.textContent = 'Other / Guest…';
+  sel.appendChild(other);
+  if (current) sel.value = current;
+}
+
 function submitRsvp(status) {
   var sel = document.getElementById('rsvp-select');
   var name = sel.value === '__other__'
     ? document.getElementById('rsvp-other').value.trim()
     : sel.value.trim();
   if (!name || sel.value === '') { toast('Please select your name'); return; }
+
+  if (status === 'in') {
+    var inCount = (rsvpData.responses || []).filter(function(r){ return r.status === 'in'; }).length;
+    if (inCount >= RSVP_LIMIT) { toast('Sorry — game is full (' + RSVP_LIMIT + ' players max)'); return; }
+  }
 
   var guestWrapOpen = document.getElementById('rsvp-guest-wrap').style.display !== 'none';
   var guestNameRaw = document.getElementById('rsvp-guest-name').value.trim();
@@ -743,7 +785,7 @@ function submitRsvp(status) {
     }
   })
   .then(function(){
-    renderRsvpList();
+    renderRsvpList(); renderRsvpForm();
     resetForm();
     var msg = status === 'in'
       ? (guestName ? '✓ You\'re in! Guest added: ' + guestName : '✓ You\'re in!')
@@ -1318,7 +1360,7 @@ function toast(msg) {
 
 function refreshAll() {
   Promise.all([fetchSeason(), fetchNextGame(), fetchRsvp(), fetchLive(), fetchHighHand()]).then(function() {
-    renderHeroStats(); renderLiveGame(); renderNextGame(); renderRsvpList(); renderStandings(); renderStructure(); renderHighHand();
+    renderHeroStats(); renderLiveGame(); renderNextGame(); renderRsvpList(); renderRsvpForm(); renderStandings(); renderStructure(); renderHighHand();
   });
 }
 
