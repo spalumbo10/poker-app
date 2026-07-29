@@ -1068,7 +1068,7 @@ function showPlayerStats(name) {
   var standing = standings.findIndex(function(p){ return p.name === name; });
   var rank = standing >= 0 ? standing + 1 : null;
 
-  document.getElementById('pm-avatar').innerHTML = playerAvatar(name, 48);
+  document.getElementById('pm-avatar').innerHTML = playerAvatar(name, 96);
   document.getElementById('pm-name').textContent = name;
   document.getElementById('pm-sub').textContent  = rank ? 'Ranked #' + rank + ' this season' : '';
   var villainHTML = villain
