@@ -818,10 +818,11 @@ function cfStatus(msg, ok) {
   el.textContent = msg;
   el.style.color = ok ? 'var(--green)' : (ok === false ? 'var(--red)' : 'var(--text3)');
 }
-function pushLiveState() {
+function pushLiveState(retries) {
   var url = getCfUrl();
   var key = getCfKey();
   if (!url || !key) return;
+  retries = retries || 0;
   var standings = getStandings();
   var payload = {
     pushedAt: Date.now(),
@@ -851,10 +852,18 @@ function pushLiveState() {
     headers: { 'Content-Type': 'text/plain' },
     body:    JSON.stringify(payload)
   }).then(function(r){
-    if (r.ok) cfStatus('✓ Pushed', true);
-    else cfStatus('✗ Error ' + r.status, false);
-  }).catch(function(){ cfStatus('✗ Network error', false); });
+    if (r.ok) { cfStatus('✓ Pushed', true); _lastPushFailed = false; }
+    else {
+      cfStatus('✗ Error ' + r.status, false);
+      if (retries < 3) setTimeout(function(){ pushLiveState(retries + 1); }, 5000);
+    }
+  }).catch(function(){
+    cfStatus('✗ Network error', false);
+    _lastPushFailed = true;
+    if (retries < 3) setTimeout(function(){ pushLiveState(retries + 1); }, 5000);
+  });
 }
+var _lastPushFailed = false;
 function testCfConnection() {
   cfStatus('Testing…', null);
   pushLiveState();
@@ -922,28 +931,12 @@ function applyCloudData(data) {
       var dg = data.game;
       // bustOrder: take cloud version if it exists ([] is valid — means undo happened)
       if (Array.isArray(dg.bustOrder)) S.game.bustOrder = dg.bustOrder;
-      // knockouts: take max per player
-      Object.keys(dg.knockouts||{}).forEach(function(n) {
-        S.game.knockouts = S.game.knockouts || {};
-        S.game.knockouts[n] = Math.max(S.game.knockouts[n]||0, dg.knockouts[n]||0);
-      });
-      // buyIns: take max per player (rebuys only go up)
-      Object.keys(dg.buyIns||{}).forEach(function(n) {
-        S.game.buyIns = S.game.buyIns || {};
-        S.game.buyIns[n] = Math.max(S.game.buyIns[n]||0, dg.buyIns[n]||0);
-      });
-      // addons: take max per player per type
-      Object.keys(dg.addons||{}).forEach(function(n) {
-        S.game.addons = S.game.addons || {};
-        S.game.addons[n] = S.game.addons[n] || {full:0, partial:0};
-        S.game.addons[n].full    = Math.max(S.game.addons[n].full||0,    (dg.addons[n]||{}).full||0);
-        S.game.addons[n].partial = Math.max(S.game.addons[n].partial||0, (dg.addons[n]||{}).partial||0);
-      });
-      // koBuyIns: take max per player
-      Object.keys(dg.koBuyIns||{}).forEach(function(n) {
-        S.game.koBuyIns = S.game.koBuyIns || {};
-        S.game.koBuyIns[n] = Math.max(S.game.koBuyIns[n]||0, dg.koBuyIns[n]||0);
-      });
+      // Replace these objects entirely from cloud — all can decrease (undo bust, remove rebuy, adjust addon)
+      // so MAX-per-player is wrong: it reverts subtractions on the next sync
+      if (dg.knockouts) S.game.knockouts = dg.knockouts;
+      if (dg.buyIns)    S.game.buyIns    = dg.buyIns;
+      if (dg.addons)    S.game.addons    = dg.addons;
+      if (dg.koBuyIns)  S.game.koBuyIns  = dg.koBuyIns;
     }
   } else {
     // Cloud has no game — clear local game regardless
@@ -1115,6 +1108,7 @@ function silentCloudPoll() {
       }
     })
     .catch(function() {});
+
 }
 setInterval(silentCloudPoll, 10000);
 
