@@ -249,6 +249,7 @@ footer a:hover{color:var(--text)}
     <div class="hero-sub" id="hero-tagline">Weekly Texas Hold'em Tournament</div>
     <div class="hero-stats">
       <div class="hero-stat"><div class="hero-stat-val" id="stat-games">—</div><div class="hero-stat-lbl">Games Played</div></div>
+      <div class="hero-stat"><div class="hero-stat-val" id="stat-week">—</div><div class="hero-stat-lbl">Current Week</div></div>
       <div class="hero-stat"><div class="hero-stat-val" id="stat-players">—</div><div class="hero-stat-lbl">Players</div></div>
       <div class="hero-stat"><div class="hero-stat-val" id="stat-leader">—</div><div class="hero-stat-lbl">Season Leader</div></div>
     </div>
@@ -612,11 +613,16 @@ function computeStandings(season) {
 //  Hero stats
 // ═══════════════════════════════════════════════════════════
 function renderHeroStats() {
-  var games   = seasonData && seasonData.season ? (seasonData.season.games || []).length : 0;
-  var nPlayers= standings.length;
-  var leader  = standings.length ? standings[0].name : '—';
-  document.getElementById('stat-games').textContent   = games   || '—';
-  document.getElementById('stat-players').textContent = nPlayers|| '—';
+  var seasonGames = seasonData && seasonData.season ? (seasonData.season.games || []) : [];
+  var games    = seasonGames.length;
+  var nPlayers = standings.length;
+  var leader   = standings.length ? standings[0].name : '—';
+  var week = seasonGames.length
+    ? Math.max.apply(null, seasonGames.map(function(g){ return g.week || 1; }))
+    : null;
+  document.getElementById('stat-games').textContent   = games    || '—';
+  document.getElementById('stat-week').textContent    = week     || '—';
+  document.getElementById('stat-players').textContent = nPlayers || '—';
   document.getElementById('stat-leader').textContent  = leader;
 }
 
