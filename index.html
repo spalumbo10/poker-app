@@ -417,9 +417,9 @@ var PHOTOS_URL  = 'https://spalumbo10.github.io/poker-app/photos';
 var HOUSE_RULES = [
   'Standard No-Limit Texas Hold\'em. Cards speak. A single verbal declaration of action is binding.',
   '$20 season league fee. Two buy-ins are set aside each week for end-of-season payouts.',
-  'Game 1: $20 buy-in · $10 knockout chip. Game 2: $40 buy-in · $10 knockout chip. Week 5 is a single game, double points/buy-in night.',
+  'Game 1: $20 buy-in · $10 knockout chip. Game 2: $40 buy-in · $10 knockout chip. Weeks 5 and 10 are a single game, double points/buy-in night ($80 buy in, $20 KO).',
   'Big blind ante in effect. The ante drops off at the start of the 150/300 round. (after 100/200)',
-  'Tables: 11–15 players run two tables; 16+ players play a single game. Tables combine when down to 9 players.',
+  'Tables: 11–15 players run two tables; 16+ players play a single game, double points/combined buy-in ($60 buy-in, $20 KO). Tables combine when down to 9 players.',
   '200 bonus chips awarded to any player on-site before 7:30 PM.',
   'Designated dealer at each table receives an extra 100 chips.',
   'Rebuys are allowed until the start of the 50/100 round. You may optionally rebuy a knockout chip at the same time.',
@@ -620,7 +620,8 @@ function renderHeroStats() {
   var lastWeek = seasonGames.length
     ? Math.max.apply(null, seasonGames.map(function(g){ return g.week || 1; }))
     : 0;
-  var week = nextGame && nextGame.date ? lastWeek + 1 : (lastWeek || null);
+  var gameAnnounced = nextGame && (nextGame.date || nextGame.time || nextGame.location);
+  var week = gameAnnounced ? lastWeek + 1 : (lastWeek || null);
   document.getElementById('stat-games').textContent   = games    || '—';
   document.getElementById('stat-week').textContent    = week     || '—';
   document.getElementById('stat-players').textContent = nPlayers || '—';
