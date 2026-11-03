@@ -716,6 +716,7 @@ function applyRole(role) {
   var floorCtls = document.getElementById('f-ctrl-row');
   if (floorCtls) floorCtls.style.display = role === 'viewer' ? 'none' : '';
   if (role === 'admin') { loadNextGameFields(); loadHighHand(); }
+  renderSeason();
   syncPullOnLogin();
 }
 function syncPullOnLogin() {
@@ -1932,7 +1933,8 @@ function renderSeason() {
   var hel=document.getElementById('s-history');
   if(hel){
     if(!S.season.games.length){hel.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px 0">No games yet</div>';}
-    else hel.innerHTML=S.season.games.slice().reverse().map(function(g){
+    else hel.innerHTML=S.season.games.map(function(g,gi){ return {g:g,gi:gi}; }).reverse().map(function(o){
+      var g=o.g, gi=o.gi;
       var total=g.results.length;
       var rows=g.results.slice().reverse().map(function(r){
         var place=total-r.pos+1;
@@ -1948,12 +1950,262 @@ function renderSeason() {
           '<span style="color:var(--accent);font-weight:600">'+r.pts+' pts</span></div>';
       }).join('');
       var gameTitle = g.week ? 'Week '+g.week+', Game '+g.gameInWeek : 'Game #'+g.num;
+      var editedTag = g.editedAt ? '<span style="font-size:10px;color:var(--orange);margin-left:8px" title="Edited '+new Date(g.editedAt).toLocaleString()+'">edited</span>' : '';
+      var editBtn = isAdminRole() ? '<button class="sm" style="margin-left:8px" onclick="openGameEditor('+gi+')">&#9998; Edit</button>' : '';
       return '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:10px">'+
-        '<div style="display:flex;justify-content:space-between;margin-bottom:8px">'+
-        '<span style="font-size:14px;font-weight:600">'+gameTitle+'</span>'+
-        '<span class="badge b-blue">'+g.mult+'x pts</span></div>'+rows+'</div>';
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
+        '<span style="font-size:14px;font-weight:600">'+gameTitle+editedTag+'</span>'+
+        '<span style="display:flex;align-items:center"><span class="badge b-blue">'+g.mult+'x pts</span>'+editBtn+'</span></div>'+rows+'</div>';
     }).join('');
   }
+}
+
+// ─── Game history editor (admin only) ─────────────────────────────────────────
+var _ge = null;
+
+function isAdminRole() { return sessionStorage.getItem('pkr4-role') === 'admin'; }
+
+function openGameEditor(idx) {
+  if (!isAdminRole()) { toast('Admin only'); return; }
+  var g = S.season.games[idx];
+  if (!g) return;
+  var koB = g.koBuyIns || {};
+  var rows = (g.results || []).slice().sort(function(a,b){ return b.pos - a.pos; }).map(function(r){
+    return {
+      orig: r.name, name: r.name, kos: r.kos||0, rebuys: r.rebuys||0,
+      fullAddons: r.fullAddons||0, partialAddons: r.partialAddons||0,
+      kosBought: koB[r.name] != null ? koB[r.name] : (r.kosBought != null ? r.kosBought : 1),
+      knockedOutBy: r.knockedOutBy || ''
+    };
+  });
+  _ge = { idx: idx, draft: { week: g.week||1, gameInWeek: g.gameInWeek||1, mult: g.mult||1, buyIn: g.buyIn||0, rows: rows } };
+  renderGameEditor();
+}
+
+function closeGameEditor() {
+  var ov = document.getElementById('ge-overlay');
+  if (ov) ov.remove();
+  _ge = null;
+}
+
+function geReadDom() {
+  var d = _ge.draft, ov = document.getElementById('ge-overlay');
+  if (!ov) return;
+  ov.querySelectorAll('[data-g]').forEach(function(el){ d[el.dataset.g] = el.value; });
+  ov.querySelectorAll('[data-i]').forEach(function(el){
+    var r = d.rows[+el.dataset.i], f = el.dataset.f;
+    if (!r) return;
+    r[f] = (f === 'name' || f === 'knockedOutBy') ? el.value : Math.max(0, parseInt(el.value, 10) || 0);
+  });
+}
+
+function geBuildResults(d) {
+  var n = d.rows.length;
+  var mult = parseFloat(d.mult) > 0 ? parseFloat(d.mult) : 1;
+  var results = d.rows.map(function(r, i) {
+    var pos = n - i;
+    var bustPts = pos * mult, koPts = (r.kos||0) * 0.5 * mult, winPts = i === 0 ? mult : 0;
+    return { name: r.name.trim(), pos: pos, pts: bustPts + koPts + winPts, bustPts: bustPts, koPts: koPts, winPts: winPts,
+      kos: r.kos||0, rebuys: r.rebuys||0, fullAddons: r.fullAddons||0, partialAddons: r.partialAddons||0,
+      kosBought: r.kosBought, knockedOutBy: (i !== 0 && r.knockedOutBy) || null };
+  });
+  return results.reverse();
+}
+
+function geInput() {
+  if (!_ge) return;
+  geReadDom();
+  var res = geBuildResults(_ge.draft);
+  res.forEach(function(r) {
+    var el = document.getElementById('ge-pts-' + (_ge.draft.rows.length - r.pos));
+    if (el) el.textContent = r.pts + ' pts';
+  });
+}
+
+function geMove(i, dir) {
+  geReadDom();
+  var rows = _ge.draft.rows, j = i + dir;
+  if (j < 0 || j >= rows.length) return;
+  var t = rows[i]; rows[i] = rows[j]; rows[j] = t;
+  renderGameEditor();
+}
+
+function geRemove(i) {
+  geReadDom();
+  _ge.draft.rows.splice(i, 1);
+  renderGameEditor();
+}
+
+function geAddPlayer() {
+  geReadDom();
+  var sel = document.getElementById('ge-add-sel');
+  var name = sel ? sel.value : '';
+  if (!name) return;
+  _ge.draft.rows.push({ orig: null, name: name, kos: 0, rebuys: 0, fullAddons: 0, partialAddons: 0, kosBought: 1, knockedOutBy: '' });
+  renderGameEditor();
+}
+
+function renderGameEditor() {
+  var d = _ge.draft;
+  var old = document.getElementById('ge-overlay');
+  var scroll = old ? old.firstChild.scrollTop : 0;
+  if (old) old.remove();
+
+  var inGame = {};
+  d.rows.forEach(function(r){ inGame[r.name] = true; });
+  var num = function(i, f, label, val) {
+    return '<div><label>'+label+'</label><input type="number" min="0" step="1" value="'+val+'" data-i="'+i+'" data-f="'+f+'" oninput="geInput()"></div>';
+  };
+  var rowsHtml = d.rows.map(function(r, i) {
+    var opts = ['<option value="">—</option>'];
+    var seen = {};
+    d.rows.forEach(function(o) {
+      if (o.name && o.name !== r.name) { seen[o.name] = true; opts.push('<option value="'+esc(o.name)+'"'+(o.name === r.knockedOutBy ? ' selected' : '')+'>'+esc(o.name)+'</option>'); }
+    });
+    if (r.knockedOutBy && !seen[r.knockedOutBy]) opts.push('<option value="'+esc(r.knockedOutBy)+'" selected>'+esc(r.knockedOutBy)+'</option>');
+    return '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-bottom:8px">'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'+
+        '<span style="font-weight:700;color:var(--text2);min-width:30px">#'+(i+1)+'</span>'+
+        '<input type="text" list="ge-names" value="'+esc(r.name)+'" data-i="'+i+'" data-f="name" oninput="geInput()" style="flex:1">'+
+        '<span id="ge-pts-'+i+'" style="font-weight:600;color:var(--accent);min-width:56px;text-align:right"></span>'+
+        '<button class="sm" onclick="geMove('+i+',-1)"'+(i===0?' disabled':'')+'>&#9650;</button>'+
+        '<button class="sm" onclick="geMove('+i+',1)"'+(i===d.rows.length-1?' disabled':'')+'>&#9660;</button>'+
+        '<button class="sm danger" onclick="geRemove('+i+')">&#10005;</button>'+
+      '</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px">'+
+        num(i,'kos','KOs',r.kos)+num(i,'rebuys','Rebuys',r.rebuys)+num(i,'fullAddons','Full add-ons',r.fullAddons)+
+        num(i,'partialAddons','Part. add-ons',r.partialAddons)+num(i,'kosBought','KO buy-ins',r.kosBought)+
+        '<div><label>Knocked out by</label><select data-i="'+i+'" data-f="knockedOutBy" onchange="geInput()"'+(i===0?' disabled title="The winner was not knocked out"':'')+'>'+opts.join('')+'</select></div>'+
+      '</div></div>';
+  }).join('');
+
+  var addOpts = S.players.map(function(p){ return p.name; }).filter(function(n){ return !inGame[n]; })
+    .map(function(n){ return '<option value="'+esc(n)+'">'+esc(n)+'</option>'; }).join('');
+  var datalist = '<datalist id="ge-names">'+S.players.map(function(p){ return '<option value="'+esc(p.name)+'">'; }).join('')+'</datalist>';
+  var field = function(key, label, step) {
+    return '<div><label>'+label+'</label><input type="number" min="0" step="'+step+'" value="'+esc(d[key])+'" data-g="'+key+'" oninput="geInput()"></div>';
+  };
+
+  var ov = document.createElement('div');
+  ov.id = 'ge-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9500;display:flex;align-items:center;justify-content:center;padding:12px';
+  ov.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:18px;width:100%;max-width:680px;max-height:92vh;overflow-y:auto">'+
+    '<div class="between" style="margin-bottom:4px"><h2>Edit game</h2><span class="badge b-blue">Season '+((S.pastSeasons||[]).length+1)+'</span></div>'+
+    '<div style="font-size:12px;color:var(--text3);margin-bottom:14px">Order rows by finishing place (#1 = winner). Points are recalculated from place, KOs and multiplier, and season standings are adjusted by the difference.</div>'+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:14px">'+
+      field('week','Week',1)+field('gameInWeek','Game in week',1)+field('mult','Points multiplier',0.5)+field('buyIn','Buy-in ($)',1)+
+    '</div>'+
+    rowsHtml+datalist+
+    '<div class="row" style="margin:6px 0 16px"><select id="ge-add-sel" style="flex:1"><option value="">Add a player to this game…</option>'+addOpts+'</select>'+
+      '<button class="sm" onclick="geAddPlayer()">Add</button></div>'+
+    '<div class="row" style="justify-content:space-between"><button class="danger" onclick="deleteGame()">Delete game</button>'+
+      '<span class="row"><button onclick="closeGameEditor()">Cancel</button><button class="primary" onclick="saveGameEdit()">Save changes</button></span></div>'+
+    '</div>';
+  document.body.appendChild(ov);
+  ov.firstChild.scrollTop = scroll;
+  geInput();
+}
+
+function saveGameEdit() {
+  if (!_ge || !isAdminRole()) return;
+  geReadDom();
+  var d = _ge.draft, g = S.season.games[_ge.idx];
+  if (!g) { closeGameEditor(); return; }
+
+  var week = parseInt(d.week, 10), gameInWeek = parseInt(d.gameInWeek, 10);
+  var mult = parseFloat(d.mult), buyIn = parseFloat(d.buyIn);
+  if (!(week >= 1) || !(gameInWeek >= 1)) { alert('Week and game-in-week must be 1 or higher.'); return; }
+  if (!(mult > 0)) { alert('Points multiplier must be greater than 0.'); return; }
+  if (!(buyIn >= 0)) { alert('Buy-in must be 0 or higher.'); return; }
+  if (!d.rows.length) { alert('A game needs at least one player.'); return; }
+  var seen = {};
+  for (var i = 0; i < d.rows.length; i++) {
+    var nm = d.rows[i].name.trim();
+    if (!nm) { alert('Row #' + (i+1) + ' has no player name.'); return; }
+    if (seen[nm.toLowerCase()]) { alert('"' + nm + '" appears twice in this game.'); return; }
+    seen[nm.toLowerCase()] = true;
+  }
+
+  // Keep "knocked out by" pointing at the renamed player
+  var renamed = {};
+  d.rows.forEach(function(r){ if (r.orig && r.orig !== r.name.trim()) renamed[r.orig] = r.name.trim(); });
+  d.rows.forEach(function(r){ if (r.knockedOutBy && renamed[r.knockedOutBy]) r.knockedOutBy = renamed[r.knockedOutBy]; });
+  d.mult = mult;
+  var results = geBuildResults(d);
+  var koBuyIns = {};
+  results.forEach(function(r){ koBuyIns[r.name] = r.kosBought; });
+
+  // Totals change by (new game points - old game points) so anything else in totals is preserved
+  var oldTotals = S.season.totals || {};
+  var newTotals = {};
+  Object.keys(oldTotals).forEach(function(n){ newTotals[n] = oldTotals[n]; });
+  (g.results || []).forEach(function(r){ newTotals[r.name] = (newTotals[r.name] || 0) - (r.pts || 0); });
+  results.forEach(function(r){ newTotals[r.name] = (newTotals[r.name] || 0) + r.pts; });
+
+  var edited = Object.assign({}, g, { week: week, gameInWeek: gameInWeek, mult: mult, buyIn: buyIn, koBuyIns: koBuyIns, results: results, editedAt: Date.now() });
+  var games = S.season.games.slice();
+  games[_ge.idx] = edited;
+  var hasGames = {};
+  games.forEach(function(gm){ (gm.results || []).forEach(function(r){ hasGames[r.name] = true; }); });
+  Object.keys(newTotals).forEach(function(n) {
+    newTotals[n] = Math.round(newTotals[n] * 100) / 100;
+    if (Math.abs(newTotals[n]) < 0.005 && !hasGames[n]) delete newTotals[n];
+  });
+
+  var changes = [];
+  var names = {};
+  Object.keys(oldTotals).concat(Object.keys(newTotals)).forEach(function(n){ names[n] = true; });
+  Object.keys(names).forEach(function(n) {
+    var a = Math.round((oldTotals[n] || 0) * 100) / 100, b = newTotals[n] || 0;
+    if (a !== b) changes.push(n + ': ' + a + ' → ' + b + ' pts');
+  });
+  var title = 'Week ' + week + ', Game ' + gameInWeek;
+  var msg = 'Save changes to ' + title + '?\n\n' + (changes.length ? 'Season standings will change:\n' + changes.join('\n') : 'Season point totals will not change.') +
+    '\n\nThis updates the live site for everyone.';
+  if (!confirm(msg)) return;
+
+  S.season.games = games;
+  S.season.totals = newTotals;
+  S.season.syncedAt = Date.now();
+  closeGameEditor();
+  renderSeason(); renderFloorStandings(); updateSeasonStatus(); saveData();
+  toast(title + ' updated');
+  pushLiveState(); syncPush(true);
+}
+
+function deleteGame() {
+  if (!_ge || !isAdminRole()) return;
+  var g = S.season.games[_ge.idx];
+  if (!g) { closeGameEditor(); return; }
+  var title = g.week ? 'Week ' + g.week + ', Game ' + g.gameInWeek : 'Game #' + g.num;
+
+  var oldTotals = S.season.totals || {};
+  var newTotals = {};
+  Object.keys(oldTotals).forEach(function(n){ newTotals[n] = oldTotals[n]; });
+  (g.results || []).forEach(function(r){ newTotals[r.name] = (newTotals[r.name] || 0) - (r.pts || 0); });
+  var games = S.season.games.filter(function(_, i){ return i !== _ge.idx; });
+  var hasGames = {};
+  games.forEach(function(gm){ (gm.results || []).forEach(function(r){ hasGames[r.name] = true; }); });
+  var changes = [];
+  Object.keys(newTotals).forEach(function(n) {
+    newTotals[n] = Math.round(newTotals[n] * 100) / 100;
+    var a = Math.round((oldTotals[n] || 0) * 100) / 100;
+    if (a !== newTotals[n]) changes.push(n + ': ' + a + ' → ' + newTotals[n] + ' pts');
+    if (Math.abs(newTotals[n]) < 0.005 && !hasGames[n]) delete newTotals[n];
+  });
+
+  if (!confirm('Permanently delete ' + title + '?\n\n' + (changes.length ? 'Season standings will change:\n' + changes.join('\n') : 'Season point totals will not change.') +
+    '\n\nThis cannot be undone and updates the live site for everyone.')) return;
+
+  games.forEach(function(gm, i){ gm.num = i + 1; });
+  S.season.games = games;
+  S.season.totals = newTotals;
+  S.season.syncedAt = Date.now();
+  if (S.game) S.game.num = games.length + 1;
+  closeGameEditor();
+  refreshGameTab(); renderSeason(); renderFloorStandings(); updateSeasonStatus(); saveData();
+  toast(title + ' deleted');
+  pushLiveState(); syncPush(true);
 }
 
 function updateSeasonStatus() {
